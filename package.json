@@ -1,0 +1,21 @@
+﻿{
+  "name": "com.voyageforge.rpc-transport",
+  "version": "0.0.12",
+  "displayName": "VoyageForge RPC Transport",
+  "description": "RPC 通讯抽象：固定头帧、Protocol<T> 信封、长连接 TCP（心跳/鉴权/RequestId/重连）、内置 Newtonsoft 序列化。",
+  "unity": "2022.3",
+  "author": {
+    "name": "VoyageForge"
+  },
+  "samples": [
+    {
+      "displayName": "TCP Echo",
+      "description": "长连接 TCP 示例：握手鉴权、心跳、RequestId、断线重连与端口释放。",
+      "path": "Samples~/Tcp"
+    }
+  ],
+  "dependencies": {
+    "com.unity.test-framework": "1.1.33",
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+}

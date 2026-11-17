@@ -1,0 +1,15 @@
+{
+  "name": "VoyageForge.Rpc.Transport.PlayMode.Tests",
+  "rootNamespace": "VoyageForge.Rpc.Transport.Tests",
+  "references": ["VoyageForge.Rpc.Transport"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "noEngineReferences": false
+}

@@ -1,0 +1,16 @@
+﻿{
+  "name": "VoyageForge.Rpc.Transport.Samples.Tcp",
+  "rootNamespace": "VoyageForge.Rpc.Transport.Samples.Tcp",
+  "references": [
+    "VoyageForge.Rpc.Transport"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

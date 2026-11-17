@@ -1,0 +1,14 @@
+{
+  "name": "VoyageForge.Rpc.Transport",
+  "rootNamespace": "VoyageForge.Rpc.Transport",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}
