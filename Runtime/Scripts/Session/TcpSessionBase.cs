@@ -22,6 +22,7 @@ namespace VoyageForge.Rpc.Transport.Session
         private readonly ConcurrentDictionary<long, TaskCompletionSource<SessionResponse>> _pending =
             new ConcurrentDictionary<long, TaskCompletionSource<SessionResponse>>();
 
+        private readonly MethodIdHasher _hasher = new MethodIdHasher();
         private readonly object _requestIdLock = new object();
         private long _nextRequestId;
 
@@ -69,9 +70,9 @@ namespace VoyageForge.Rpc.Transport.Session
             }
         }
 
-        /// <summary>发送请求并等待对应响应。</summary>
-        public async Task<SessionResponse> SendAsync(string controllerName, string methodName, byte[] payload,
-            CancellationToken ct = default(CancellationToken))
+        /// <summary>发送请求并等待对应响应（按 MethodId 定位；MethodId 为 0 时对端回退名称）。</summary>
+        public async Task<SessionResponse> SendAsync(string controllerName, string methodName, ulong methodId,
+            byte[] payload, CancellationToken ct = default(CancellationToken))
         {
             NetworkStream stream = _stream;
             if (stream == null) throw new IOException("会话尚未绑定连接。");
@@ -79,6 +80,7 @@ namespace VoyageForge.Rpc.Transport.Session
             SessionRequest request = new SessionRequest
             {
                 RequestId = NextRequestId(),
+                MethodId = methodId,
                 ControllerName = controllerName,
                 MethodName = methodName,
                 Payload = payload ?? Array.Empty<byte>()
@@ -108,18 +110,50 @@ namespace VoyageForge.Rpc.Transport.Session
             }
         }
 
+        /// <summary>发送请求并等待对应响应（无 MethodId，对端按名称查找）。</summary>
+        public Task<SessionResponse> SendAsync(string controllerName, string methodName, byte[] payload,
+            CancellationToken ct = default(CancellationToken))
+        {
+            return SendAsync(controllerName, methodName, 0UL, payload, ct);
+        }
+
         /// <summary>发送强类型请求并反序列化响应（代理生成代码使用）。</summary>
         public async Task<TResponse> SendAsync<TRequest, TResponse>(string controllerName, string methodName,
             TRequest request, CancellationToken ct = default(CancellationToken))
         {
-            byte[] payload = Serializer.Serialize(request);
-            SessionResponse response = await SendAsync(controllerName, methodName, payload, ct).ConfigureAwait(false);
+            // 空参数请求：不序列化 null，直接发空 payload；对端按“无参数”调用。
+            byte[] payload = request == null ? Array.Empty<byte>() : Serializer.Serialize(request);
+            ulong methodId = _hasher.Compute(controllerName, methodName, typeof(TRequest));
+            SessionResponse response = await SendAsync(controllerName, methodName, methodId, payload, ct)
+                .ConfigureAwait(false);
             if (response == null || !response.Success)
             {
                 throw new RpcSessionException(response != null ? response.Error : "EMPTY_RESPONSE");
             }
 
             return Serializer.Deserialize<TResponse>(response.Payload);
+        }
+
+        /// <summary>
+        /// axios 风格调用：只需 Controller 名 + 方法名，框架负责 MethodId、序列化、帧与响应匹配。
+        /// 示例：await session.CallAsync&lt;GetUserRequest, UserInfo&gt;("User", "GetUser", req);
+        /// </summary>
+        public async Task<TResponse> CallAsync<TRequest, TResponse>(string controllerName, string methodName,
+            TRequest request, CancellationToken ct = default(CancellationToken))
+        {
+            byte[] payload = request == null ? Array.Empty<byte>() : Serializer.Serialize(request);
+            ulong methodId = _hasher.Compute(controllerName, methodName, typeof(TRequest));
+            SessionResponse response = await SendAsync(controllerName, methodName, methodId, payload, ct)
+                .ConfigureAwait(false);
+
+            if (response == null || !response.Success)
+            {
+                throw new RpcSessionException(response != null ? response.Error : "EMPTY_RESPONSE");
+            }
+
+            return response.Payload == null || response.Payload.Length == 0
+                ? default(TResponse)
+                : Serializer.Deserialize<TResponse>(response.Payload);
         }
 
         /// <summary>读循环：响应交给 pending，远端请求交给子类执行。</summary>

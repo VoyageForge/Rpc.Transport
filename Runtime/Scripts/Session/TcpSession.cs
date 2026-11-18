@@ -32,7 +32,12 @@ namespace VoyageForge.Rpc.Transport.Session
         protected override async Task<SessionResponse> HandleRemoteRequestAsync(SessionRequest request,
             CancellationToken ct)
         {
-            if (!Registry.TryGet(request.ControllerName, request.MethodName, out RpcMethodDescriptor descriptor))
+            // 主路径：MethodId 查表；MethodId 为 0（旧客端）时回退名称查找。
+            RpcMethodDescriptor descriptor = null;
+            bool found = request.MethodId != 0
+                ? Registry.TryGet(request.MethodId, out descriptor)
+                : Registry.TryGet(request.ControllerName, request.MethodName, out descriptor);
+            if (!found)
             {
                 return new SessionResponse
                 {
@@ -42,7 +47,9 @@ namespace VoyageForge.Rpc.Transport.Session
                 };
             }
 
-            object requestObject = Serializer.Deserialize(request.Payload, descriptor.RequestType);
+            object requestObject = request.Payload == null || request.Payload.Length == 0
+                ? null
+                : Serializer.Deserialize(request.Payload, descriptor.RequestType);
             object result = await descriptor.Handler(requestObject, ct).ConfigureAwait(false);
 
             return new SessionResponse

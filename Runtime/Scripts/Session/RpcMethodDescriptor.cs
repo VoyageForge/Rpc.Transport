@@ -10,6 +10,9 @@ namespace VoyageForge.Rpc.Transport.Session
     /// </summary>
     public sealed class RpcMethodDescriptor
     {
+        /// <summary>方法 ID（FNV-1a 64，ControllerName + MethodName + 请求类型）；0 表示尚未计算。</summary>
+        public ulong MethodId { get; set; }
+
         /// <summary>Controller 名称。</summary>
         public string ControllerName { get; set; }
 

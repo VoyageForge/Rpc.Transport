@@ -32,6 +32,11 @@ namespace VoyageForge.Rpc.Transport
         /// 用于长连接响应关联与幂等去重。
         /// </summary>
         public uint RequestId { get; set; }
+
+        /// <summary>
+        /// 方法 ID（FNV-1a 64）；优先用它查表（Mirror 式），为 0 时回退 ServiceName + MethodName。
+        /// </summary>
+        public ulong MethodId { get; set; }
     }
 
     /// <summary>RPC 执行结果。业务异常由执行器转换成 Error，不应直接穿透到传输层。</summary>
@@ -48,6 +53,11 @@ namespace VoyageForge.Rpc.Transport
 
         /// <summary>回带请求编号，用于长连接响应关联。</summary>
         public uint RequestId { get; set; }
+
+        /// <summary>
+        /// 方法 ID（FNV-1a 64）；优先用它查表（Mirror 式），为 0 时回退 ServiceName + MethodName。
+        /// </summary>
+        public ulong MethodId { get; set; }
 
         /// <summary>内部诊断信息（通常为堆栈）。默认不向外部响应暴露，避免泄露服务器路径和实现细节。</summary>
         public string Detail { get; set; }

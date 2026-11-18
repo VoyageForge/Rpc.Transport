@@ -19,8 +19,9 @@ namespace VoyageForge.Rpc.Transport.Samples.Session
             // 2. 每条连接一个 TcpSession 实例；socket 在构造时注入，业务代码不再接触它。
             TcpSession<GameControllerMap> session = new TcpSession<GameControllerMap>(client);
 
-            // 3. 调用：Ability 属性由生成器生成，内部走 Session.SendAsync。
-            UserInfo user = await session.Ability.User.GetUser(new GetUserRequest { Id = "123" });
+            // 3. axios 风格：只需要 controller 名 + 方法名，无需 ControllerMap。
+            UserInfo user = await session.CallAsync<GetUserRequest, UserInfo>("User", "GetUser",
+                new GetUserRequest { Id = "123" });
             Debug.Log("[SessionSample] " + user.Name);
 
             // 4. 关闭。
