@@ -1,4 +1,4 @@
-# VoyageForge RPC Transport
+﻿# VoyageForge RPC Transport
 
 独立的 RPC 通讯 UPM Package（`com.voyageforge.rpc-transport`），目标 Unity 2022.3。
 
@@ -74,6 +74,6 @@ Unity 2022.3 的 Test Framework 1.1.33 不支持 `async Task` 作为测试入口
 }
 ```
 
-## 安装
+## Session（TcpSession<TControllerMap>）`n`n`nRpc.Transport/Session 提供会话：`Attach(TcpClient)`、`Ability`（ControllerMap）、`SendAsync<TRequest,TResponse>`、`RpcMethodRegistry`。`n`n## 安装
 
 通过 Package Manager 的 Add package from disk 选择本包 `package.json`；`Rpc.Executor` 的 `package.json` 已声明对本包的依赖。

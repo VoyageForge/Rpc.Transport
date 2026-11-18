@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +15,9 @@ namespace VoyageForge.Rpc.Transport
 
         /// <summary>将字节数组解码为目标类型。</summary>
         T Deserialize<T>(ReadOnlySpan<byte> data);
+
+        /// <summary>按运行时类型解码（Session/Dispatcher 使用，避免反射构造泛型调用）。</summary>
+        object Deserialize(byte[] data, global::System.Type type);
     }
 
     /// <summary>

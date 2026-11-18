@@ -1,0 +1,16 @@
+﻿{
+  "name": "VoyageForge.Rpc.Transport.Samples.Session",
+  "rootNamespace": "VoyageForge.Rpc.Transport.Samples.Session",
+  "references": [
+    "VoyageForge.Rpc.Transport"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

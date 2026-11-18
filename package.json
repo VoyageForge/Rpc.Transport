@@ -1,6 +1,6 @@
 ﻿{
   "name": "com.voyageforge.rpc-transport",
-  "version": "0.0.12",
+  "version": "0.2.0",
   "displayName": "VoyageForge RPC Transport",
   "description": "RPC 通讯抽象：固定头帧、Protocol<T> 信封、长连接 TCP（心跳/鉴权/RequestId/重连）、内置 Newtonsoft 序列化。",
   "unity": "2022.3",
@@ -8,6 +8,11 @@
     "name": "VoyageForge"
   },
   "samples": [
+    {
+      "displayName": "TcpSession 双向 RPC",
+      "description": "演示 TcpSession<TControllerMap>、[Controller] 契约、生成器代理与本地 Dispatcher。",
+      "path": "Samples~/Session"
+    },
     {
       "displayName": "TCP Echo",
       "description": "长连接 TCP 示例：握手鉴权、心跳、RequestId、断线重连与端口释放。",

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -1016,6 +1016,8 @@ namespace VoyageForge.Rpc.Transport.Tests
         /// <summary>用于验证客户端请求序列化异常和空 Payload 防御的故障注入序列化器。</summary>
         private sealed class InvalidRequestSerializer : IRpcSerializer
         {
+        public object Deserialize(byte[] data, global::System.Type type) => Deserialize<object>(data);
+
             private readonly bool _throwOnSerialize;
 
             public InvalidRequestSerializer(bool throwOnSerialize)
@@ -1049,6 +1051,8 @@ namespace VoyageForge.Rpc.Transport.Tests
     /// <summary>响应序列化时抛异常的序列化器；用于验证服务端上报并关闭连接。</summary>
     internal sealed class ThrowingResponseSerializer : IRpcSerializer
     {
+        public object Deserialize(byte[] data, global::System.Type type) => _inner.Deserialize(data, type);
+
         private readonly IRpcSerializer _inner;
 
         public ThrowingResponseSerializer(IRpcSerializer inner)

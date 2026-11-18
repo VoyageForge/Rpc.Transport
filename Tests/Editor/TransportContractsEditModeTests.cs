@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -157,6 +157,8 @@ namespace VoyageForge.Rpc.Transport.Tests
         /// <summary>最小 UTF-8 文本序列化器，仅用于验证 IRpcSerializer 的通用方法契约。</summary>
         private sealed class Utf8TextSerializer : IRpcSerializer
         {
+        public object Deserialize(byte[] data, global::System.Type type) => Deserialize<object>(data);
+
             public string ContentType
             {
                 get { return "text/plain; charset=utf-8"; }

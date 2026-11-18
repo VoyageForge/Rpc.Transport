@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
@@ -123,6 +123,15 @@ namespace VoyageForge.Rpc.Transport
         /// 因此这里把标量 JValue 递归还原成普通 CLR 值，方便 JsonArgumentConverter 继续绑定 int/double/string。
         /// 不启用 TypeNameHandling，复杂 DTO 应由业务方自行定义安全的类型转换规则。
         /// </summary>
+        /// <summary>按运行时类型反序列化；供 Session/Dispatcher 使用。</summary>
+        public object Deserialize(byte[] data, global::System.Type type)
+        {
+            if (data == null || data.Length == 0) return null;
+            if (type == null) throw new global::System.ArgumentNullException(nameof(type));
+            string json = Utf8.GetString(data);
+            return JsonConvert.DeserializeObject(json, type, _settings);
+        }
+
         public T Deserialize<T>(ReadOnlySpan<byte> data)
         {
             // Encoding.GetString(ReadOnlySpan<byte>) 直接消费输入 Span，不先调用 ToArray() 复制整帧。
