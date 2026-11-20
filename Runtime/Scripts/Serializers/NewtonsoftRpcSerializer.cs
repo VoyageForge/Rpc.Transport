@@ -8,18 +8,15 @@ using VoyageForge.Rpc.Transport;
 namespace VoyageForge.Rpc.Transport
 {
     /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>
+    /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
     /// 使用 Unity 官方 Newtonsoft Json Package 实现 IRpcSerializer 的示例。
     /// 序列化器属于 Sample 适配层，不放进 RPC Runtime，避免核心强制依赖某一种 JSON 库。
     /// </summary>
     public sealed class NewtonsoftRpcSerializer : IRpcSerializer
     {
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>无 BOM 严格 UTF-8 编码器；静态复用，避免每次 RPC 调用都创建 Encoding 实例。</summary>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
+        /// 无 BOM 严格 UTF-8 编码器；静态复用，避免每次 RPC 调用都创建 Encoding 实例。</summary>
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
 
         private readonly JsonSerializerSettings _settings = new JsonSerializerSettings
@@ -31,15 +28,16 @@ namespace VoyageForge.Rpc.Transport
         };
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>本示例使用 JSON 文本承载 RPC 消息。</summary>
-        public string ContentType { get { return "application/json"; } }
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
+        /// 本示例使用 JSON 文本承载 RPC 消息。
+        /// </summary>
+        public string ContentType
+        {
+            get { return "application/json"; }
+        }
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
         /// 将对象直接写入 UTF-8 MemoryStream，避免 JsonConvert.SerializeObject 先创建完整 JSON 字符串、
         /// 随后再整体编码成 byte[] 的中间字符串分配。JsonSerializer 每次调用单独创建，避免并发共享状态。
         /// </summary>
@@ -60,9 +58,7 @@ namespace VoyageForge.Rpc.Transport
         }
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
         /// 根据消息中已知字符串的 UTF-8 字节数预分配缓冲区。
         /// 这不是序列化长度的精确值；JSON 转义和字段名仍由 MemoryStream 自行扩容处理。
         /// </summary>
@@ -78,6 +74,7 @@ namespace VoyageForge.Rpc.Transport
                 {
                     capacity += request.Payload.Length + 8;
                 }
+
                 if (request.Headers != null)
                 {
                     foreach (System.Collections.Generic.KeyValuePair<string, string> header in request.Headers)
@@ -92,7 +89,8 @@ namespace VoyageForge.Rpc.Transport
                     string resultText = response.Result as string;
                     if (resultText != null) capacity += GetUtf8ByteCount(resultText) + 16;
                     if (response.Error != null)
-                        capacity += GetUtf8ByteCount(response.Error.Code) + GetUtf8ByteCount(response.Error.Message) + 32;
+                        capacity += GetUtf8ByteCount(response.Error.Code) + GetUtf8ByteCount(response.Error.Message) +
+                                    32;
                     capacity += GetUtf8ByteCount(response.Detail);
                 }
             }
@@ -103,23 +101,21 @@ namespace VoyageForge.Rpc.Transport
         }
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>复用静态 UTF-8 编码器计算字节数，不创建中间 byte[]。</summary>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
+        /// 复用静态 UTF-8 编码器计算字节数，不创建中间 byte[]。
+        /// </summary>
         private static int GetUtf8ByteCount(string value)
         {
             return string.IsNullOrEmpty(value) ? 0 : Utf8.GetByteCount(value);
         }
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
         /// 将 UTF-8 JSON 反序列化。JSON 中 object 类型的数字/字符串默认可能成为 JValue，
         /// 因此这里把标量 JValue 递归还原成普通 CLR 值，方便 JsonArgumentConverter 继续绑定 int/double/string。
         /// 不启用 TypeNameHandling，复杂 DTO 应由业务方自行定义安全的类型转换规则。
+        /// 按运行时类型反序列化；供 Session/Dispatcher 使用。
         /// </summary>
-        /// <summary>按运行时类型反序列化；供 Session/Dispatcher 使用。</summary>
         public object Deserialize(byte[] data, global::System.Type type)
         {
             if (data == null || data.Length == 0) return null;
@@ -143,9 +139,9 @@ namespace VoyageForge.Rpc.Transport
         }
 
         /// <summary>
-/// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
-/// </summary>
-/// <remarks>只把 JSON 标量节点转换为 CLR 标量；对象/数组保留 JToken，交给自定义 Converter 处理。</summary>
+        /// 内置 RPC 序列化器：使用 Unity 官方 Newtonsoft.Json Package。
+        /// 只把 JSON 标量节点转换为 CLR 标量；对象/数组保留 JToken，交给自定义 Converter 处理。
+        /// </summary>
         private static object NormalizeToken(object value)
         {
             JValue scalar = value as JValue;

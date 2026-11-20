@@ -2,7 +2,7 @@
   "name": "VoyageForge.Rpc.Transport.Editor.Tests",
   "rootNamespace": "VoyageForge.Rpc.Transport.Tests",
   "references": [
-    "MemoryPack.Core","VoyageForge.Rpc.Transport"],
+"VoyageForge.Rpc.Transport"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

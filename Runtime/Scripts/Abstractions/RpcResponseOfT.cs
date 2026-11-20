@@ -9,5 +9,11 @@
     {
         /// <summary>强类型结果。</summary>
         public T Data { get; set; }
+
+        /// <summary>创建成功响应（业务数据）。</summary>
+        public static RpcResponse<T> Ok(T data)
+        {
+            return new RpcResponse<T> { Success = true, Data = data };
+        }
     }
 }

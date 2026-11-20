@@ -3,7 +3,8 @@
   "rootNamespace": "VoyageForge.Rpc.Transport.Samples.Tcp",
   "references": [
     "MemoryPack.Core",
-    "VoyageForge.Rpc.Transport"
+    "VoyageForge.Rpc.Transport",
+    "VoyageForge.Rpc.Executor"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

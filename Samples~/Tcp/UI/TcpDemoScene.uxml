@@ -1,0 +1,16 @@
+﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
+  <ui:Style src="TcpDemoScene.uss" />
+  <ui:VisualElement name="root" class="root">
+    <ui:Label text="TCP 双端口 RPC 示例" class="title" />
+
+    <ui:VisualElement name="buttons" class="buttons">
+      <ui:Button name="call-button" text="客户端调用服务端函数" class="action-button" />
+      <ui:Button name="auth-button" text="服务端主动鉴权" class="action-button" />
+      <ui:Button name="authorized-button" text="有权调用" class="action-button" />
+      <ui:Button name="unauthorized-button" text="无权调用" class="action-button danger" />
+      <ui:Button name="reconnect-button" text="模拟断线重连" class="action-button" />
+    </ui:VisualElement>
+
+    <ui:Label name="status-label" text="未启动" class="status" />
+  </ui:VisualElement>
+</ui:UXML>

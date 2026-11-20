@@ -14,6 +14,12 @@ namespace VoyageForge.Rpc.Transport
         public byte[] Pack<T>(T value)
         {
             if (value == null) return Array.Empty<byte>();
+            if (typeof(T) == typeof(object) && value.GetType() != typeof(object))
+            {
+                // 单参数/元组以 object 传入时，按运行时类型选择 formatter（避免 object 未注册）。
+                return SerializeDynamic(value);
+            }
+
             if (value is object[] values)
             {
                 using (var stream = new System.IO.MemoryStream())

@@ -2,7 +2,7 @@
   "name": "VoyageForge.Rpc.Transport.PlayMode.Tests",
   "rootNamespace": "VoyageForge.Rpc.Transport.Tests",
   "references": [
-    "MemoryPack.Core","VoyageForge.Rpc.Transport"],
+"VoyageForge.Rpc.Transport"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

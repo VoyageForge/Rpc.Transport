@@ -134,6 +134,18 @@ namespace VoyageForge.Rpc.Transport.Tests
         }
 
         [Test]
+        public void 元组参数往返一致()
+        {
+            // 2+ 参数走 ValueTuple：Pack 元组 → Unpack 同名元组，字段顺序必须一致。
+            var value = (3, 4);
+            byte[] payload = RpcPayload.Pack(value);
+            (int a, int b) roundTrip = RpcPayload.Unpack<(int a, int b)>(payload);
+
+            Assert.AreEqual(3, roundTrip.a);
+            Assert.AreEqual(4, roundTrip.b);
+        }
+
+        [Test]
         public void 空payload请求可往返()
         {
             // 无参数 Get：Payload 为空数组，经 Protocol 信封往返后仍是合法请求（Data 非空、Payload 空）。

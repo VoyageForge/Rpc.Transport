@@ -1,0 +1,47 @@
+﻿.root {
+    flex-grow: 1;
+    background-color: rgb(24, 30, 42);
+    padding: 24px;
+}
+
+.title {
+    font-size: 32px;
+    color: rgb(235, 240, 250);
+    -unity-text-align: middle-center;
+    margin-bottom: 16px;
+}
+
+.buttons {
+    flex-grow: 1;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.action-button {
+    height: 56px;
+    margin: 6px 120px;
+    background-color: rgb(46, 90, 153);
+    color: rgb(240, 245, 255);
+    font-size: 24px;
+    -unity-text-align: middle-center;
+    border-radius: 6px;
+}
+
+.action-button:hover {
+    background-color: rgb(62, 116, 190);
+}
+
+.action-button:active {
+    background-color: rgb(34, 68, 117);
+}
+
+.danger {
+    background-color: rgb(140, 58, 58);
+}
+
+.status {
+    font-size: 24px;
+    color: rgb(210, 220, 235);
+    -unity-text-align: middle-center;
+    white-space: normal;
+}

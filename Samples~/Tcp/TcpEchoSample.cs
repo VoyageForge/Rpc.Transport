@@ -39,9 +39,8 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             server.OnRequestAsync += (request, requestToken) =>
             {
                 // 2. 传输层示例直接返回响应；正式项目这里交给 RpcExecutor.ExecuteAsync。
-                string text = RpcPayload.Unpack<object[]>(request.Payload).Length > 0
-                    ? RpcPayload.Unpack<object[]>(request.Payload)[0] as string
-                    : string.Empty;
+                // 单一参数：直接序列化参数类型（与生成器规则一致，无 DTO）。
+                string text = RpcPayload.Unpack<string>(request.Payload) ?? string.Empty;
                 return Task.FromResult(RpcResponse.Ok("echo:" + text));
             };
             server.OnTransportError += exception => Console.WriteLine("[server] " + exception.Message);
@@ -70,7 +69,7 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             {
                 ServiceName = "demo.echo",
                 MethodName = "Echo",
-                Payload = RpcPayload.Pack(new object[] {  text  })
+                Payload = RpcPayload.Pack(text)
             }, ct);
 
             if (!response.Success)

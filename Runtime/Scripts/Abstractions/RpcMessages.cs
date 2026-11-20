@@ -62,6 +62,9 @@ namespace VoyageForge.Rpc.Transport
         /// <summary>失败时的结构化错误；成功时为 null。</summary>
         public RpcError Error { get; set; }
 
+        /// <summary>序列化后的结果负载（生成器直接写入，避免 object 装箱）。</summary>
+        public byte[] Payload { get; set; }
+
         /// <summary>回带请求编号，用于长连接响应关联。</summary>
         public uint RequestId { get; set; }
 
@@ -82,6 +85,12 @@ namespace VoyageForge.Rpc.Transport
         public static RpcResponse Ok(object result)
         {
             return new RpcResponse { Success = true, Result = result, Error = null };
+        }
+
+        /// <summary>创建成功响应：直接携带序列化后的 Payload（零装箱路径）。</summary>
+        public static RpcResponse Ok(byte[] payload)
+        {
+            return new RpcResponse { Success = true, Payload = payload, Result = null, Error = null };
         }
 
         /// <summary>创建失败响应。Code 用于程序判断，Message 用于人阅读，Detail 是可选内部诊断。</summary>

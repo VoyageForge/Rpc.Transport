@@ -790,9 +790,8 @@ namespace VoyageForge.Rpc.Transport.Tests
             TcpRpcServerTransport server = TrackServer(new TcpRpcServerTransport(IPAddress.Loopback, 0, serializer));
             server.OnRequestAsync += (request, ct) =>
             {
-                string value = RpcPayload.Unpack<object[]>(request.Payload).Length > 0
-                    ? RpcPayload.Unpack<object[]>(request.Payload)[0] as string
-                    : null;
+                // 单参数规则：Payload 直接是 string 的序列化结果（与生成器/示例一致）。
+                string value = RpcPayload.Unpack<string>(request.Payload);
                 return Task.FromResult(RpcResponse.Ok("echo:" + value));
             };
             return server;
