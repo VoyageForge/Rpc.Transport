@@ -1,7 +1,8 @@
-{
+﻿{
   "name": "VoyageForge.Rpc.Transport",
   "rootNamespace": "VoyageForge.Rpc.Transport",
-  "references": [],
+  "references": [
+    "MemoryPack.Core"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

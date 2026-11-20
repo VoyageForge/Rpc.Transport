@@ -74,13 +74,9 @@ namespace VoyageForge.Rpc.Transport
             if (request != null)
             {
                 capacity += GetUtf8ByteCount(request.ServiceName) + GetUtf8ByteCount(request.MethodName);
-                if (request.Parameters != null)
+                if (request.Payload != null)
                 {
-                    for (int index = 0; index < request.Parameters.Length; index++)
-                    {
-                        string text = request.Parameters[index] as string;
-                        if (text != null) capacity += GetUtf8ByteCount(text) + 8;
-                    }
+                    capacity += request.Payload.Length + 8;
                 }
                 if (request.Headers != null)
                 {
@@ -138,12 +134,7 @@ namespace VoyageForge.Rpc.Transport
             string json = Utf8.GetString(data);
             T value = JsonConvert.DeserializeObject<T>(json, _settings);
 
-            if (value is RpcRequest request && request.Parameters != null)
-            {
-                for (int i = 0; i < request.Parameters.Length; i++)
-                    request.Parameters[i] = NormalizeToken(request.Parameters[i]);
-            }
-            else if (value is RpcResponse response)
+            if (value is RpcResponse response)
             {
                 response.Result = NormalizeToken(response.Result);
             }

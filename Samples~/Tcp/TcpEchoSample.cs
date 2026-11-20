@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,8 +39,8 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             server.OnRequestAsync += (request, requestToken) =>
             {
                 // 2. 传输层示例直接返回响应；正式项目这里交给 RpcExecutor.ExecuteAsync。
-                string text = request.Parameters != null && request.Parameters.Length > 0
-                    ? request.Parameters[0] as string
+                string text = RpcPayload.Unpack<object[]>(request.Payload).Length > 0
+                    ? RpcPayload.Unpack<object[]>(request.Payload)[0] as string
                     : string.Empty;
                 return Task.FromResult(RpcResponse.Ok("echo:" + text));
             };
@@ -70,7 +70,7 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             {
                 ServiceName = "demo.echo",
                 MethodName = "Echo",
-                Parameters = new object[] { text }
+                Payload = RpcPayload.Pack(new object[] {  text  })
             }, ct);
 
             if (!response.Success)

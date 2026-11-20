@@ -2,6 +2,7 @@
   "name": "VoyageForge.Rpc.Transport.Samples.Session",
   "rootNamespace": "VoyageForge.Rpc.Transport.Samples.Session",
   "references": [
+    "MemoryPack.Core",
     "VoyageForge.Rpc.Transport"
   ],
   "includePlatforms": [],

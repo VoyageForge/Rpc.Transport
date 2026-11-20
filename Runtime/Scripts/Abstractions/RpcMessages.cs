@@ -8,21 +8,27 @@ namespace VoyageForge.Rpc.Transport
     /// </summary>
     /// <remarks>
     /// Console、TCP、NamedPipe、单元测试或游戏内部代码都可以创建 RpcRequest。
-    /// Parameters 保存的是原始值，类型转换会延迟到 RpcExecutor 的参数绑定阶段。
-    /// 例如网络 JSON 层可以把一个 JsonElement 原样放入 Parameters，再由 IArgumentConverter 转成 int。
+    /// Payload 保存序列化后的参数数组；反序列化和类型转换延迟到 RpcExecutor 的参数绑定阶段。
     /// </remarks>
     public class RpcRequest
     {
-        /// <summary>目标服务名。默认按 StringComparison.Ordinal 进行大小写敏感比较。</summary>
+        /// <summary>
+        /// 目标服务名。默认不参与网络传输（只传 MethodId）；Debug 模式下才填充用于诊断。
+        /// </summary>
+        [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public string ServiceName { get; set; }
 
-        /// <summary>目标方法名。重载通过参数数量和参数可转换性进一步区分。</summary>
+        /// <summary>
+        /// 目标方法名。默认不参与网络传输（只传 MethodId）；Debug 模式下才填充用于诊断。
+        /// </summary>
+        [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public string MethodName { get; set; }
 
         /// <summary>
-        /// 原始位置参数。这里不包含 CancellationToken；取消令牌属于本地执行控制信息，由 ExecuteAsync 注入。
+        /// 方法参数负载（Mirror 式）：序列化后的参数数组，避免调用方直接构造 object[]。
+        /// 由 RpcPayload.Pack(...) 生成，执行器按方法签名反序列化。
         /// </summary>
-        public object[] Parameters { get; set; } = Array.Empty<object>();
+        public byte[] Payload { get; set; } = Array.Empty<byte>();
 
         /// <summary>可选请求头。认证、追踪、审计等拦截器可以读取或写入这些键值。</summary>
         public IDictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
@@ -37,6 +43,11 @@ namespace VoyageForge.Rpc.Transport
         /// 方法 ID（FNV-1a 64）；优先用它查表（Mirror 式），为 0 时回退 ServiceName + MethodName。
         /// </summary>
         public ulong MethodId { get; set; }
+
+        /// <summary>
+        /// Debug 模式：为 true 时随请求携带 ServiceName/MethodName（默认 false，只传 MethodId）。
+        /// </summary>
+        public bool DebugMode { get; set; }
     }
 
     /// <summary>RPC 执行结果。业务异常由执行器转换成 Error，不应直接穿透到传输层。</summary>
@@ -58,6 +69,11 @@ namespace VoyageForge.Rpc.Transport
         /// 方法 ID（FNV-1a 64）；优先用它查表（Mirror 式），为 0 时回退 ServiceName + MethodName。
         /// </summary>
         public ulong MethodId { get; set; }
+
+        /// <summary>
+        /// Debug 模式：为 true 时随请求携带 ServiceName/MethodName（默认 false，只传 MethodId）。
+        /// </summary>
+        public bool DebugMode { get; set; }
 
         /// <summary>内部诊断信息（通常为堆栈）。默认不向外部响应暴露，避免泄露服务器路径和实现细节。</summary>
         public string Detail { get; set; }

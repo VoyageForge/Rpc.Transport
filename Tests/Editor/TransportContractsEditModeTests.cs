@@ -21,7 +21,7 @@ namespace VoyageForge.Rpc.Transport.Tests
             {
                 ServiceName = "test.echo",
                 MethodName = "Echo",
-                Parameters = new object[] { "hello" }
+                Payload = RpcPayload.Pack( "hello" )
             };
             CancellationTokenSource lifetime = new CancellationTokenSource();
             RpcRequest receivedRequest = null;

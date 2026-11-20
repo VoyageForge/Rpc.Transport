@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,7 +56,7 @@ namespace VoyageForge.Rpc.Transport.Tests
             {
                 ServiceName = "test.health",
                 MethodName = "Ping",
-                Parameters = Array.Empty<object>()
+                Payload = Array.Empty<byte>(),
             }, CancellationToken.None);
             await transport.StopAsync(CancellationToken.None);
             return response;
@@ -82,7 +82,7 @@ namespace VoyageForge.Rpc.Transport.Tests
             {
                 ServiceName = "test.health",
                 MethodName = "Ping",
-                Parameters = Array.Empty<object>()
+                Payload = Array.Empty<byte>(),
             }, CancellationToken.None);
             await transport.StopAsync(CancellationToken.None);
             lifetime.Dispose();

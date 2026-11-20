@@ -790,8 +790,8 @@ namespace VoyageForge.Rpc.Transport.Tests
             TcpRpcServerTransport server = TrackServer(new TcpRpcServerTransport(IPAddress.Loopback, 0, serializer));
             server.OnRequestAsync += (request, ct) =>
             {
-                string value = request.Parameters != null && request.Parameters.Length > 0
-                    ? request.Parameters[0] as string
+                string value = RpcPayload.Unpack<object[]>(request.Payload).Length > 0
+                    ? RpcPayload.Unpack<object[]>(request.Payload)[0] as string
                     : null;
                 return Task.FromResult(RpcResponse.Ok("echo:" + value));
             };
@@ -825,7 +825,7 @@ namespace VoyageForge.Rpc.Transport.Tests
             {
                 ServiceName = "tests.tcp",
                 MethodName = methodName,
-                Parameters = new object[] { value }
+                Payload = RpcPayload.Pack( value )
             };
         }
 
