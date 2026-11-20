@@ -10,6 +10,12 @@
         /// <summary>强类型结果。</summary>
         public T Data { get; set; }
 
+        /// <summary>创建失败响应。</summary>
+        public static RpcResponse<T> Fail(string code, string message)
+        {
+            return new RpcResponse<T> { Success = false, Error = new RpcError { Code = code, Message = message } };
+        }
+
         /// <summary>创建成功响应（业务数据）。</summary>
         public static RpcResponse<T> Ok(T data)
         {

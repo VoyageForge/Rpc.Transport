@@ -5,7 +5,8 @@
 
     <ui:VisualElement name="buttons" class="buttons">
       <ui:Button name="call-button" text="客户端调用服务端函数" class="action-button" />
-      <ui:Button name="auth-button" text="服务端主动鉴权" class="action-button" />
+      <ui:Button name="fake-button" text="伪造 SessionId 重连" class="action-button danger" />
+      <ui:Button name="hijack-button" text="顶号（同 SessionId 重连）" class="action-button danger" />
       <ui:Button name="authorized-button" text="有权调用" class="action-button" />
       <ui:Button name="unauthorized-button" text="无权调用" class="action-button danger" />
       <ui:Button name="reconnect-button" text="模拟断线重连" class="action-button" />

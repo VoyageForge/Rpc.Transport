@@ -24,7 +24,8 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             try
             {
                 _session = await TcpDemoSample.StartAsync(_cts.Token);
-                SetStatus("双端口已启动：" + TcpDemoSample.PortA + " / " + TcpDemoSample.PortB);
+                SetStatus("已握手：A=" + _session.SessionA.SessionId + "（权限 " +
+                    string.Join(",", _session.SessionA.Permissions) + "）；B=" + _session.SessionB.SessionId);
             }
             catch (Exception exception)
             {
@@ -44,10 +45,11 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             }
 
             Bind(root, "call-button", CallAsync);
-            Bind(root, "auth-button", AuthenticateAsync);
             Bind(root, "authorized-button", CallAuthorizedAsync);
             Bind(root, "unauthorized-button", CallUnauthorizedAsync);
             Bind(root, "reconnect-button", ReconnectAsync);
+            Bind(root, "fake-button", FakeSessionAsync);
+            Bind(root, "hijack-button", HijackAsync);
             _status = root.Q<Label>("status-label");
             SetStatus(_statusText);
         }
@@ -82,10 +84,11 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             }
         }
 
-        private async Task CallAsync() { SetStatus(await TcpDemoSample.CallBothAsync(_session)); }
-        private async Task AuthenticateAsync() { SetStatus(await TcpDemoSample.AuthenticateAsync(_session)); }
+        private async Task CallAsync() { SetStatus(await TcpDemoSample.CallAddAsync(_session)); }
         private async Task CallAuthorizedAsync() { SetStatus(await TcpDemoSample.CallAuthorizedAsync(_session)); }
         private async Task CallUnauthorizedAsync() { SetStatus(await TcpDemoSample.CallUnauthorizedAsync(_session)); }
-        private async Task ReconnectAsync() { SetStatus(await TcpDemoSample.ReconnectAsync(_session)); }
+        private async Task ReconnectAsync() { SetStatus(await TcpDemoSample.ReconnectAsync(_session, _cts.Token)); }
+        private async Task FakeSessionAsync() { SetStatus(await TcpDemoSample.FakeSessionAsync(_session, _cts.Token)); }
+        private async Task HijackAsync() { SetStatus(await TcpDemoSample.HijackAsync(_session, _cts.Token)); }
     }
 }
