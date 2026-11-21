@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
+using MemoryPack;
 
 namespace VoyageForge.Rpc.Transport.Session
 {
     /// <summary>会话握手结果：SessionId + 权限集合。</summary>
-    public sealed class SessionHandshake
+    [MemoryPackable]
+    public sealed partial class SessionHandshake
     {
         /// <summary>服务端分配的会话 ID。</summary>
         public string SessionId { get; set; }

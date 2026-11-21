@@ -7,13 +7,14 @@ using UnityEngine.UIElements;
 namespace VoyageForge.Rpc.Transport.Samples.Tcp
 {
     /// <summary>
-    /// TCP 示例（UI Toolkit）：界面在 TcpDemoScene.uxml / .uss 里，本脚本只绑定按钮与状态。
-    /// 需要 UIDocument 组件引用本脚本与 TcpDemoScene.uxml。
+    /// TCP 会话列表（UI Toolkit）：
+    /// “创建链接”按钮新增一条会话；列表中右击条目弹出函数菜单（Add/有权 Add/断开/重连）。
     /// </summary>
     public sealed class TcpDemoBootstrap : MonoBehaviour
     {
         private CancellationTokenSource _cts;
         private TcpDemoSample.DemoSession _session;
+        private ScrollView _list;
         private Label _status;
         private string _statusText = "未启动";
 
@@ -23,9 +24,8 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             BindUi();
             try
             {
-                _session = await TcpDemoSample.StartAsync(_cts.Token);
-                SetStatus("已握手：A=" + _session.SessionA.SessionId + "（权限 " +
-                    string.Join(",", _session.SessionA.Permissions) + "）；B=" + _session.SessionB.SessionId);
+                _session = await TcpDemoSample.StartServersAsync(_cts.Token);
+                SetStatus("服务端已启动：" + TcpDemoSample.PortA + " / " + TcpDemoSample.PortB);
             }
             catch (Exception exception)
             {
@@ -44,20 +44,12 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
                 return;
             }
 
-            Bind(root, "call-button", CallAsync);
-            Bind(root, "authorized-button", CallAuthorizedAsync);
-            Bind(root, "unauthorized-button", CallUnauthorizedAsync);
-            Bind(root, "reconnect-button", ReconnectAsync);
-            Bind(root, "fake-button", FakeSessionAsync);
-            Bind(root, "hijack-button", HijackAsync);
+            Button create = root.Q<Button>("create-button");
+            if (create != null) create.clicked += () => Run(CreateConnectionAsync);
+
+            _list = root.Q<ScrollView>("connection-list");
             _status = root.Q<Label>("status-label");
             SetStatus(_statusText);
-        }
-
-        private void Bind(VisualElement root, string name, Func<Task> action)
-        {
-            Button button = root.Q<Button>(name);
-            if (button != null) button.clicked += () => Run(action);
         }
 
         private void OnDestroy()
@@ -84,11 +76,58 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             }
         }
 
-        private async Task CallAsync() { SetStatus(await TcpDemoSample.CallAddAsync(_session)); }
-        private async Task CallAuthorizedAsync() { SetStatus(await TcpDemoSample.CallAuthorizedAsync(_session)); }
-        private async Task CallUnauthorizedAsync() { SetStatus(await TcpDemoSample.CallUnauthorizedAsync(_session)); }
-        private async Task ReconnectAsync() { SetStatus(await TcpDemoSample.ReconnectAsync(_session, _cts.Token)); }
-        private async Task FakeSessionAsync() { SetStatus(await TcpDemoSample.FakeSessionAsync(_session, _cts.Token)); }
-        private async Task HijackAsync() { SetStatus(await TcpDemoSample.HijackAsync(_session, _cts.Token)); }
+        private async Task CreateConnectionAsync()
+        {
+            // 交替 admin / guest，便于演示有权与无权调用。
+            string userId = _session.Connections.Count % 2 == 0 ? "admin" : "guest";
+            TcpDemoSample.Connection connection = await TcpDemoSample.CreateConnectionAsync(_session, userId, _cts.Token);
+            AddItem(connection);
+            SetStatus("已创建：" + connection.Name + " SessionId=" + connection.Session.SessionId);
+        }
+
+        private void AddItem(TcpDemoSample.Connection connection)
+        {
+            VisualElement item = new VisualElement();
+            item.AddToClassList("connection-item");
+
+            Label name = new Label(connection.Name);
+            name.AddToClassList("connection-name");
+            item.Add(name);
+
+            Label state = new Label("在线");
+            state.AddToClassList("connection-state");
+            item.Add(state);
+
+            // 右击菜单：函数 + 断开/重连
+            item.AddManipulator(new ContextualMenuManipulator(evt =>
+            {
+                evt.menu.AppendAction("函数/Add(3,4)", _ => Run(() => CallAddAsync(connection, 3, 4)));
+                evt.menu.AppendAction("函数/有权 Add(1,2)", _ => Run(() => CallAuthorizedAsync(connection, 1, 2)));
+                evt.menu.AppendSeparator();
+                evt.menu.AppendAction("连接/断开", _ =>
+                {
+                    TcpDemoSample.Disconnect(_session, connection);
+                    state.text = "已断开";
+                    SetStatus("已断开：" + connection.Name);
+                });
+                evt.menu.AppendAction("连接/重连", _ => Run(async () =>
+                {
+                    SetStatus(await TcpDemoSample.ReconnectAsync(_session, connection, _cts.Token));
+                    state.text = "在线";
+                }));
+            }));
+
+            _list?.Add(item);
+        }
+
+        private async Task CallAddAsync(TcpDemoSample.Connection connection, int a, int b)
+        {
+            SetStatus(await TcpDemoSample.CallAdd(_session, connection, a, b));
+        }
+
+        private async Task CallAuthorizedAsync(TcpDemoSample.Connection connection, int a, int b)
+        {
+            SetStatus(await TcpDemoSample.CallAuthorizedAdd(_session, connection, a, b));
+        }
     }
 }

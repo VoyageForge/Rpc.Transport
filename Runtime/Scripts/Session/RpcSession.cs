@@ -32,6 +32,7 @@ namespace VoyageForge.Rpc.Transport.Session
         /// <summary>首次握手：提交 userId/token，拿 SessionId 与权限。</summary>
         public async Task ConnectAsync(string userId, string token, CancellationToken ct)
         {
+            // 握手返回元组 (sessionId, permissions)：MemoryPack 原生支持，无需额外 formatter。
             RpcResponse<SessionHandshake> response = await SendTypedAsync<SessionHandshake>(
                 new RpcRequest
                 {
@@ -64,6 +65,8 @@ namespace VoyageForge.Rpc.Transport.Session
 
             if (!response.Success)
                 throw new InvalidOperationException("会话重连失败 [" + response.Error?.Code + "]：" + response.Error?.Message);
+
+            Permissions = response.Data?.Permissions ?? Array.Empty<string>();
         }
 
         /// <summary>会话级调用：自动把 user-id / permissions 写进请求头（执行器层 RpcContext 使用）。</summary>
@@ -79,6 +82,13 @@ namespace VoyageForge.Rpc.Transport.Session
         {
             RpcResponse baseResponse = await _client.SendAsync(request, ct).ConfigureAwait(false);
             return ToTyped<T>(baseResponse);
+        }
+
+        /// <summary>权限字符串（逗号分隔）转集合。</summary>
+        private static IReadOnlyList<string> ParsePermissions(string permissions)
+        {
+            if (string.IsNullOrEmpty(permissions)) return Array.Empty<string>();
+            return permissions.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         /// <summary>把基础响应转成强类型响应（Payload 是服务端 dispatch 写出的 Data）。</summary>

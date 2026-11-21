@@ -8,18 +8,18 @@
     font-size: 32px;
     color: rgb(235, 240, 250);
     -unity-text-align: middle-center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
-.buttons {
-    flex-grow: 1;
-    flex-direction: column;
+.toolbar {
+    flex-direction: row;
     margin-bottom: 12px;
 }
 
 .action-button {
-    height: 56px;
-    margin: 6px 120px;
+    height: 52px;
+    margin: 4px 12px;
+    padding: 0 20px;
     background-color: rgb(46, 90, 153);
     color: rgb(240, 245, 255);
     font-size: 24px;
@@ -27,21 +27,50 @@
     border-radius: 6px;
 }
 
+.action-button.primary {
+    background-color: rgb(40, 120, 80);
+}
+
 .action-button:hover {
     background-color: rgb(62, 116, 190);
 }
 
-.action-button:active {
-    background-color: rgb(34, 68, 117);
+.connection-list {
+    flex-grow: 1;
+    background-color: rgb(18, 23, 32);
+    border-radius: 6px;
+    padding: 6px;
 }
 
-.danger {
-    background-color: rgb(140, 58, 58);
+.connection-item {
+    height: 56px;
+    margin: 4px;
+    padding: 0 12px;
+    background-color: rgb(34, 42, 56);
+    border-radius: 4px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.connection-item:hover {
+    background-color: rgb(48, 60, 78);
+}
+
+.connection-name {
+    color: rgb(235, 240, 250);
+    font-size: 22px;
+    flex-grow: 1;
+}
+
+.connection-state {
+    color: rgb(150, 170, 195);
+    font-size: 18px;
 }
 
 .status {
-    font-size: 24px;
+    font-size: 22px;
     color: rgb(210, 220, 235);
     -unity-text-align: middle-center;
     white-space: normal;
+    margin-top: 8px;
 }

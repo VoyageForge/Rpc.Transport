@@ -1,16 +1,13 @@
 ﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
   <ui:Style src="TcpDemoScene.uss" />
   <ui:VisualElement name="root" class="root">
-    <ui:Label text="TCP 双端口 RPC 示例" class="title" />
+    <ui:Label text="TCP 会话列表" class="title" />
 
-    <ui:VisualElement name="buttons" class="buttons">
-      <ui:Button name="call-button" text="客户端调用服务端函数" class="action-button" />
-      <ui:Button name="fake-button" text="伪造 SessionId 重连" class="action-button danger" />
-      <ui:Button name="hijack-button" text="顶号（同 SessionId 重连）" class="action-button danger" />
-      <ui:Button name="authorized-button" text="有权调用" class="action-button" />
-      <ui:Button name="unauthorized-button" text="无权调用" class="action-button danger" />
-      <ui:Button name="reconnect-button" text="模拟断线重连" class="action-button" />
+    <ui:VisualElement class="toolbar">
+      <ui:Button name="create-button" text="创建链接" class="action-button primary" />
     </ui:VisualElement>
+
+    <ui:ScrollView name="connection-list" class="connection-list" />
 
     <ui:Label name="status-label" text="未启动" class="status" />
   </ui:VisualElement>
