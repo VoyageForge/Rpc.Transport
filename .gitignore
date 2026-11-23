@@ -111,3 +111,12 @@ InitTestScene*.unity*
 # 该目录存放 YooAsset 构建的 Bundles 文件，体积大且无需纳入版本控制
 /[Aa]ssets/StreamingAssets/yoo/
 # =============================================
+# -----------------------------------------------------------------------------
+# 源代码生成器的构建产物
+# CodeGen~ 下是独立的 dotnet 工程（netstandard2.0 analyzer），它的 bin/obj
+# 属于本机构建输出，不应进入版本库。注意 Unity 默认 .gitignore 只忽略根级 obj/，
+# 匹配不到 CodeGen~/xxx/obj/，所以这里必须显式声明。
+# Runtime/Analyzers/*.dll 是**部署产物**，Unity 运行需要，保留跟踪。
+# -----------------------------------------------------------------------------
+CodeGen~/**/bin/
+CodeGen~/**/obj/
