@@ -1,16 +1,24 @@
-﻿{
+{
   "name": "VoyageForge.Rpc.Transport.Editor.Tests",
   "rootNamespace": "VoyageForge.Rpc.Transport.Tests",
   "references": [
-"VoyageForge.Rpc.Transport"],
-  "includePlatforms": ["Editor"],
+    "VoyageForge.Rpc.Transport"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "MemoryPack.Core.dll",
+    "System.Collections.Immutable.dll"
+  ],
   "autoReferenced": false,
   "defineConstraints": [],
   "versionDefines": [],
-  "optionalUnityReferences": ["TestAssemblies"],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
   "noEngineReferences": false
 }

@@ -1,7 +1,10 @@
-﻿namespace VoyageForge.Rpc.Transport.Samples.Session
+using MemoryPack;
+
+namespace VoyageForge.Rpc.Transport.Samples.Session
 {
     /// <summary>用户信息响应。</summary>
-    public sealed class UserInfo
+    [MemoryPackable]
+    public sealed partial class UserInfo
     {
         /// <summary>用户 Id。</summary>
         public string Id { get; set; }

@@ -1,103 +1,94 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoryPack;
 using VoyageForge.Rpc.Transport.Tcp;
 
 namespace VoyageForge.Rpc.Transport.Session
 {
-    /// <summary>
-    /// 会话基类：一条 TCP 连接上的双向 RPC。
-    /// 负责帧收发、RequestId 分配、pending 响应匹配和把远端请求交给子类分发；
-    /// 子类只关心“收到请求后怎么执行本地 Controller”。
-    /// </summary>
+    /// <summary>一条 TCP 连接上的双向 RPC Session。网络路由只使用 MethodId，业务 Payload 使用 MemoryPack。</summary>
     public abstract class TcpSessionBase : IDisposable
     {
-        /// <summary>默认最大帧长度。</summary>
         private const int DefaultMaxFrameBytes = 1024 * 1024;
-
         private readonly TcpFrameProtocol _frame;
+        private readonly RpcControllerRegistry _registry;
         private readonly ConcurrentDictionary<long, TaskCompletionSource<SessionResponse>> _pending =
             new ConcurrentDictionary<long, TaskCompletionSource<SessionResponse>>();
-
-        private readonly MethodIdHasher _hasher = new MethodIdHasher();
-        private readonly object _requestIdLock = new object();
+        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
         private long _nextRequestId;
-
         private TcpClient _client;
         private NetworkStream _stream;
         private CancellationTokenSource _lifetime;
         private Task _readTask;
         private bool _disposed;
 
-        /// <summary>创建会话。</summary>
-        protected TcpSessionBase(IRpcSerializer serializer, int maxFrameBytes = DefaultMaxFrameBytes)
+        protected TcpSessionBase(RpcControllerRegistry registry, int maxFrameBytes = DefaultMaxFrameBytes)
         {
-            Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+            _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            _registry.Seal();
             _frame = new TcpFrameProtocol(maxFrameBytes);
-            Registry = new RpcMethodRegistry();
         }
 
-        /// <summary>本会话使用的序列化器。</summary>
-        public IRpcSerializer Serializer { get; }
+        public bool IsConnected { get { return _client != null && _client.Connected; } }
 
-        /// <summary>本端提供的 Controller 方法注册表。</summary>
-        public RpcMethodRegistry Registry { get; }
-
-        /// <summary>是否已连接。</summary>
-        public bool IsConnected { get { return _client != null; } }
-
-        /// <summary>绑定一条已经建立的 TCP 连接并启动读循环。</summary>
         public void Attach(TcpClient client)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
-            if (_client != null) throw new InvalidOperationException("会话已经绑定连接。");
-
+            if (_disposed) throw new ObjectDisposedException(GetType().Name);
+            if (_client != null) throw new InvalidOperationException("Session 已绑定连接。");
+            client.NoDelay = true;
             _client = client;
             _stream = client.GetStream();
             _lifetime = new CancellationTokenSource();
             _readTask = Task.Run(() => ReadLoopAsync(_lifetime.Token));
         }
 
-        /// <summary>分配下一个请求编号。</summary>
-        public long NextRequestId()
+        /// <summary>由生成的调用代理调用；TResponse 在编译期确定，避免运行时 Type 反射。</summary>
+        public async Task<TResponse> InvokeAsync<TResponse>(ulong methodId, byte[] payload,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
-            lock (_requestIdLock)
-            {
-                return ++_nextRequestId;
-            }
+            SessionResponse response = await SendAsync(methodId, payload, cancellationToken).ConfigureAwait(false);
+            if (!response.Success) throw new RpcSessionException(response.Error ?? "RPC_FAILED");
+            if (response.Payload == null || response.Payload.Length == 0)
+                throw new InvalidDataException("RPC 返回 Payload 为空，但调用方期待 " + typeof(TResponse).FullName + "。");
+            return MemoryPackSerializer.Deserialize<TResponse>(response.Payload);
         }
 
-        /// <summary>发送请求并等待对应响应（按 MethodId 定位；MethodId 为 0 时对端回退名称）。</summary>
-        public async Task<SessionResponse> SendAsync(string controllerName, string methodName, ulong methodId,
-            byte[] payload, CancellationToken ct = default(CancellationToken))
+        /// <summary>无返回值的 RPC 调用。</summary>
+        public async Task InvokeAsync(ulong methodId, byte[] payload,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            SessionResponse response = await SendAsync(methodId, payload, cancellationToken).ConfigureAwait(false);
+            if (!response.Success) throw new RpcSessionException(response.Error ?? "RPC_FAILED");
+        }
+
+        private async Task<SessionResponse> SendAsync(ulong methodId, byte[] payload, CancellationToken ct)
         {
             NetworkStream stream = _stream;
-            if (stream == null) throw new IOException("会话尚未绑定连接。");
+            if (stream == null) throw new IOException("Session 尚未绑定 TCP 连接。");
+            if (methodId == 0) throw new ArgumentOutOfRangeException(nameof(methodId), "MethodId 不能为 0。");
+            if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
 
-            SessionRequest request = new SessionRequest
-            {
-                RequestId = NextRequestId(),
-                MethodId = methodId,
-                ControllerName = controllerName,
-                MethodName = methodName,
-                Payload = payload ?? Array.Empty<byte>()
-            };
-
+            long requestId = Interlocked.Increment(ref _nextRequestId);
             TaskCompletionSource<SessionResponse> completion =
                 new TaskCompletionSource<SessionResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _pending[request.RequestId] = completion;
+            if (!_pending.TryAdd(requestId, completion)) throw new InvalidOperationException("RequestId 冲突。");
 
             try
             {
-                byte[] framePayload = Serializer.Serialize(new Protocol<SessionRequest>
+                byte[] framePayload = MemoryPackSerializer.Serialize(new SessionRequest
                 {
-                    Version = "1.0",
-                    Data = request
+                    RequestId = requestId,
+                    MethodId = methodId,
+                    Payload = payload ?? Array.Empty<byte>()
                 });
-                await _frame.WriteFrameAsync(stream, RpcMessageType.RpcRequest, framePayload, ct).ConfigureAwait(false);
+
+                await _writeLock.WaitAsync(ct).ConfigureAwait(false);
+                try { await _frame.WriteFrameAsync(stream, RpcMessageType.RpcRequest, framePayload, ct).ConfigureAwait(false); }
+                finally { _writeLock.Release(); }
 
                 using (ct.Register(() => completion.TrySetCanceled(ct)))
                 {
@@ -106,57 +97,10 @@ namespace VoyageForge.Rpc.Transport.Session
             }
             finally
             {
-                _pending.TryRemove(request.RequestId, out _);
+                _pending.TryRemove(requestId, out _);
             }
         }
 
-        /// <summary>发送请求并等待对应响应（无 MethodId，对端按名称查找）。</summary>
-        public Task<SessionResponse> SendAsync(string controllerName, string methodName, byte[] payload,
-            CancellationToken ct = default(CancellationToken))
-        {
-            return SendAsync(controllerName, methodName, 0UL, payload, ct);
-        }
-
-        /// <summary>发送强类型请求并反序列化响应（代理生成代码使用）。</summary>
-        public async Task<TResponse> SendAsync<TRequest, TResponse>(string controllerName, string methodName,
-            TRequest request, CancellationToken ct = default(CancellationToken))
-        {
-            // 空参数请求：不序列化 null，直接发空 payload；对端按“无参数”调用。
-            byte[] payload = request == null ? Array.Empty<byte>() : Serializer.Serialize(request);
-            ulong methodId = _hasher.Compute(controllerName, methodName, typeof(TRequest));
-            SessionResponse response = await SendAsync(controllerName, methodName, methodId, payload, ct)
-                .ConfigureAwait(false);
-            if (response == null || !response.Success)
-            {
-                throw new RpcSessionException(response != null ? response.Error : "EMPTY_RESPONSE");
-            }
-
-            return Serializer.Deserialize<TResponse>(response.Payload);
-        }
-
-        /// <summary>
-        /// axios 风格调用：只需 Controller 名 + 方法名，框架负责 MethodId、序列化、帧与响应匹配。
-        /// 示例：await session.CallAsync&lt;GetUserRequest, UserInfo&gt;("User", "GetUser", req);
-        /// </summary>
-        public async Task<TResponse> CallAsync<TRequest, TResponse>(string controllerName, string methodName,
-            TRequest request, CancellationToken ct = default(CancellationToken))
-        {
-            byte[] payload = request == null ? Array.Empty<byte>() : Serializer.Serialize(request);
-            ulong methodId = _hasher.Compute(controllerName, methodName, typeof(TRequest));
-            SessionResponse response = await SendAsync(controllerName, methodName, methodId, payload, ct)
-                .ConfigureAwait(false);
-
-            if (response == null || !response.Success)
-            {
-                throw new RpcSessionException(response != null ? response.Error : "EMPTY_RESPONSE");
-            }
-
-            return response.Payload == null || response.Payload.Length == 0
-                ? default(TResponse)
-                : Serializer.Deserialize<TResponse>(response.Payload);
-        }
-
-        /// <summary>读循环：响应交给 pending，远端请求交给子类执行。</summary>
         private async Task ReadLoopAsync(CancellationToken ct)
         {
             try
@@ -165,59 +109,52 @@ namespace VoyageForge.Rpc.Transport.Session
                 {
                     TcpFrameProtocol.Frame? frame = await _frame.ReadFrameAsync(_stream, ct).ConfigureAwait(false);
                     if (!frame.HasValue) break;
-
                     switch (frame.Value.TypeId)
                     {
                         case RpcMessageType.RpcResponse:
                             HandleResponse(frame.Value.Payload);
                             break;
-
                         case RpcMessageType.RpcRequest:
-                            await HandleRequestAsync(frame.Value.Payload, ct).ConfigureAwait(false);
+                            // 不阻塞读循环：Controller 可以在处理请求时反向调用对端，否则会卡住本连接的响应读取。
+                            _ = HandleRequestAsync(frame.Value.Payload, ct);
                             break;
-
                         case RpcMessageType.Ping:
-                            await _frame.WriteFrameAsync(_stream, RpcMessageType.Pong, Array.Empty<byte>(), ct)
-                                .ConfigureAwait(false);
+                            await WriteFrameAsync(RpcMessageType.Pong, Array.Empty<byte>(), ct).ConfigureAwait(false);
                             break;
                     }
                 }
             }
             catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
             catch (Exception) { }
-            finally
-            {
-                FailAllPending();
-            }
+            finally { FailAllPending("CONNECTION_LOST"); }
         }
 
         private void HandleResponse(byte[] payload)
         {
-            Protocol<SessionResponse> envelope = Serializer.Deserialize<Protocol<SessionResponse>>(payload);
-            SessionResponse response = envelope != null ? envelope.Data : null;
+            SessionResponse response = MemoryPackSerializer.Deserialize<SessionResponse>(payload);
             if (response == null) return;
-
             if (_pending.TryRemove(response.RequestId, out TaskCompletionSource<SessionResponse> completion))
-            {
                 completion.TrySetResult(response);
-            }
         }
 
         private async Task HandleRequestAsync(byte[] payload, CancellationToken ct)
         {
+            SessionRequest request = null;
             SessionResponse response;
             try
             {
-                Protocol<SessionRequest> envelope = Serializer.Deserialize<Protocol<SessionRequest>>(payload);
-                SessionRequest request = envelope != null ? envelope.Data : null;
-                if (request == null)
+                request = MemoryPackSerializer.Deserialize<SessionRequest>(payload);
+                if (request == null) throw new InvalidDataException("RPC Request 为空。");
+                if (!_registry.TryGet(request.MethodId, out RpcMethodDescriptor descriptor))
                 {
-                    response = new SessionResponse { Success = false, Error = "INVALID_REQUEST" };
+                    response = new SessionResponse { Success = false, Error = "METHOD_NOT_FOUND:0x" + request.MethodId.ToString("X16") };
                 }
                 else
                 {
-                    response = await HandleRemoteRequestAsync(request, ct).ConfigureAwait(false);
-                    response.RequestId = request.RequestId;
+                    byte[] result = await descriptor.Handler(request.Payload ?? Array.Empty<byte>(), ct).ConfigureAwait(false);
+                    response = new SessionResponse { Success = true, Payload = result ?? Array.Empty<byte>() };
                 }
             }
             catch (OperationCanceledException)
@@ -226,48 +163,44 @@ namespace VoyageForge.Rpc.Transport.Session
             }
             catch (Exception exception)
             {
-                response = new SessionResponse { Success = false, Error = exception.Message };
+                response = new SessionResponse { Success = false, Error = "RPC_EXECUTION_FAILED: " + exception.Message };
             }
 
-            byte[] framePayload = Serializer.Serialize(new Protocol<SessionResponse>
+            response.RequestId = request != null ? request.RequestId : 0;
+            try
             {
-                Version = "1.0",
-                Data = response
-            });
-            await _frame.WriteFrameAsync(_stream, RpcMessageType.RpcResponse, framePayload, ct).ConfigureAwait(false);
+                await WriteFrameAsync(RpcMessageType.RpcResponse, MemoryPackSerializer.Serialize(response), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
         }
 
-        /// <summary>处理远端请求：子类按 Registry 查描述、反序列化并调用本地 Controller。</summary>
-        protected abstract Task<SessionResponse> HandleRemoteRequestAsync(SessionRequest request,
-            CancellationToken ct);
+        private async Task WriteFrameAsync(ushort typeId, byte[] payload, CancellationToken ct)
+        {
+            NetworkStream stream = _stream;
+            if (stream == null) throw new IOException("Session 连接已关闭。");
+            await _writeLock.WaitAsync(ct).ConfigureAwait(false);
+            try { await _frame.WriteFrameAsync(stream, typeId, payload, ct).ConfigureAwait(false); }
+            finally { _writeLock.Release(); }
+        }
 
-        private void FailAllPending()
+        private void FailAllPending(string error)
         {
             foreach (long requestId in _pending.Keys)
             {
                 if (_pending.TryRemove(requestId, out TaskCompletionSource<SessionResponse> completion))
-                {
-                    completion.TrySetResult(new SessionResponse
-                    {
-                        RequestId = requestId,
-                        Success = false,
-                        Error = "CONNECTION_LOST"
-                    });
-                }
+                    completion.TrySetResult(new SessionResponse { RequestId = requestId, Success = false, Error = error });
             }
         }
 
-        /// <summary>释放连接与 pending。</summary>
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-
             _lifetime?.Cancel();
-            try { _client?.Close(); }
-            catch { }
-
-            FailAllPending();
+            try { _client?.Close(); } catch { }
+            FailAllPending("CONNECTION_CLOSED");
             _lifetime?.Dispose();
             _client = null;
             _stream = null;

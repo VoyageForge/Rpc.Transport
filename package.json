@@ -1,8 +1,8 @@
-﻿{
+{
   "name": "com.voyageforge.rpc-transport",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "VoyageForge RPC Transport",
-  "description": "RPC 通讯抽象：固定头帧、Protocol<T> 信封、长连接 TCP（心跳/鉴权/RequestId/重连）、内置 Newtonsoft 序列化。",
+  "description": "双向 TCP RPC Session、MethodId 路由、MemoryPack 负载与通用 TCP 传输。",
   "unity": "2022.3",
   "author": {
     "name": "VoyageForge"

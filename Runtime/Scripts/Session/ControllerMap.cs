@@ -1,30 +1,22 @@
-﻿using System;
-using System.Reflection;
+using System;
 
 namespace VoyageForge.Rpc.Transport.Session
 {
-    /// <summary>
-    /// 会话能力集合：每个 Controller 属性既是远端调用代理，也是本地请求执行入口。
-    /// 框架提供内置 ControllerMap，用户继承扩展；第一阶段只支持单继承。
-    /// </summary>
+    /// <summary>调用方的远程 Controller 代理集合。代理属性及初始化代码由 Source Generator 生成。</summary>
     public abstract class ControllerMap
     {
-        /// <summary>当前 ControllerMap 所属的会话；由会话初始化时注入。</summary>
-        public TcpSessionBase Session { get; internal set; }
+        public TcpSessionBase Session { get; private set; }
 
-        /// <summary>
-        /// 初始化本层 Controller：注入 Session，并调用生成器生成的 InitializeControllers（只反射一次）。
-        /// </summary>
-        public virtual void Initialize(TcpSessionBase session)
+        /// <summary>由 TcpSession 初始化；不使用反射查找生成方法。</summary>
+        public void Initialize(TcpSessionBase session)
         {
+            if (session == null) throw new ArgumentNullException(nameof(session));
+            if (Session != null) throw new InvalidOperationException("ControllerMap 已初始化。");
             Session = session;
-
-            MethodInfo method = GetType().GetMethod("InitializeControllers",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (method != null && method.GetParameters().Length == 0)
-            {
-                method.Invoke(this, null);
-            }
+            InitializeGenerated();
         }
+
+        /// <summary>由生成的部分类重写，创建当前 Session 专属的代理对象。</summary>
+        protected virtual void InitializeGenerated() { }
     }
 }

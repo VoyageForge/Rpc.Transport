@@ -1,11 +1,12 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+using VoyageForge.Rpc.Executor;
 
 namespace VoyageForge.Rpc.Transport.Samples.Session
 {
-    /// <summary>本地实现：约定实现类名为接口去掉 I 前缀，生成器用它注册 Dispatcher。</summary>
-    public sealed class UserController : IUserController
+    /// <summary>服务端业务实现；Dispatcher 由 ControllerRpcGenerator 生成。</summary>
+    [RpcController(typeof(IUserController))]
+    public sealed partial class UserController : RpcControllerBase, IUserController
     {
-        /// <inheritdoc />
         public Task<UserInfo> GetUser(GetUserRequest request)
         {
             return Task.FromResult(new UserInfo
