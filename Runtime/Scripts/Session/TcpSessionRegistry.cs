@@ -29,10 +29,13 @@ namespace VoyageForge.Rpc.Transport.Session
         private readonly ConcurrentDictionary<string, Entry> _sessions =
             new ConcurrentDictionary<string, Entry>(StringComparer.Ordinal);
 
+        /// <summary>进程内自增序号：避免 Mono 的 Guid.NewGuid 快速调用重复。</summary>
+        private int _counter;
+
         /// <summary>创建会话：分配 SessionId 并返回权限快照。</summary>
         public SessionHandshake Create(string userId, string[] permissions)
         {
-            string sessionId = Guid.NewGuid().ToString("N");
+            string sessionId = Guid.NewGuid().ToString("N") + "-" + System.Threading.Interlocked.Increment(ref _counter);
             _sessions[sessionId] = new Entry
             {
                 UserId = userId,
@@ -70,6 +73,18 @@ namespace VoyageForge.Rpc.Transport.Session
         {
             if (string.IsNullOrEmpty(sessionId)) return;
             if (_sessions.TryGetValue(sessionId, out Entry entry)) entry.State = SessionState.Disconnected;
+        }
+
+        /// <summary>服务端当前记录的 SessionId（用于示例/诊断）。</summary>
+        public string[] GetSessionIds()
+        {
+            System.Collections.Generic.List<string> ids = new System.Collections.Generic.List<string>();
+            foreach (System.Collections.Generic.KeyValuePair<string, Entry> pair in _sessions)
+            {
+                ids.Add(pair.Key + "|" + pair.Value.UserId + "|" + pair.Value.State);
+            }
+
+            return ids.ToArray();
         }
 
         /// <summary>移除会话（过期/登出）。</summary>

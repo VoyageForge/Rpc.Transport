@@ -10,39 +10,53 @@ using VoyageForge.Rpc.Transport.Tcp;
 
 namespace VoyageForge.Rpc.Transport.Samples.Tcp
 {
+    // ===== 契约与控制器（服务端）=====
+
     /// <summary>会话控制器（Controller 模式）：首次握手与断线重连。</summary>
     [RpcService("session")]
     public sealed partial class SessionController : RpcControllerBase
     {
         private readonly TcpSessionRegistry _registry;
+        private readonly ISessionAuthenticator _authenticator;
 
-        public SessionController(TcpSessionRegistry registry)
+        public SessionController(TcpSessionRegistry registry, ISessionAuthenticator authenticator)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            _authenticator = authenticator ?? throw new ArgumentNullException(nameof(authenticator));
         }
 
         /// <summary>首次握手：userId + token，返回 SessionId 与权限。</summary>
         [RpcMethod]
-        public RpcResponse<SessionHandshake> Hello(string userId, string token)
+        public async Task<RpcResponse<(string SessionId, string Permissions)>> Hello(string userId, string token)
         {
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
-                return RpcResponse<SessionHandshake>.Fail("UNAUTHENTICATED", "缺少 userId 或 token。");
+                return RpcResponse<(string, string)>.Fail("UNAUTHENTICATED", "缺少 userId 或 token。");
 
-            // 示例鉴权：admin 拥有 calc.add 权限，其它用户没有。
-            string[] permissions = userId == "admin" ? new[] { "calc.add" } : Array.Empty<string>();
-            return RpcResponse<SessionHandshake>.Ok(_registry.Create(userId, permissions));
+            // 鉴权剥离到 ISessionAuthenticator：控制器不再关心凭据类型与权限来源。
+            SessionAuthResult auth = await _authenticator.AuthenticateAsync(userId, token, CancellationToken.None);
+            if (!auth.Success)
+                return RpcResponse<(string, string)>.Fail(auth.Error ?? "UNAUTHENTICATED", auth.Message ?? "鉴权失败。");
+
+            SessionHandshake handshake = _registry.Create(userId, auth.Permissions);
+            return RpcResponse<(string, string)>.Ok((handshake.SessionId, string.Join(",", handshake.Permissions)));
         }
 
         /// <summary>断线重连：裸 SessionId；活跃会话会被拒绝（禁止顶号）。</summary>
         [RpcMethod]
-        public RpcResponse<SessionHandshake> Resume(string sessionId)
+        public RpcResponse<string> Resume((string SessionId, string Tag) value)
         {
-            if (!_registry.TryResume(sessionId, out SessionHandshake handshake, out string error))
-                return RpcResponse<SessionHandshake>.Fail(error, "会话重连被拒绝：" + error);
+            string sessionId = value.SessionId;
+            UnityEngine.Debug.Log("[Session] Resume sessionId=" + (sessionId ?? "null") +
+                " len=" + (sessionId?.Length ?? -1));
+            bool resumed = _registry.TryResume(sessionId, out SessionHandshake handshake, out string error);
+            UnityEngine.Debug.Log("[Session] Resume result=" + resumed + " error=" + (error ?? "none"));
+            if (!resumed)
+                return RpcResponse<string>.Fail(error, "会话重连被拒绝：" + error);
 
-            return RpcResponse<SessionHandshake>.Ok(handshake);
-        }
+            return RpcResponse<string>.Ok(handshake.SessionId);
     }
+
+        }
 
     /// <summary>
     /// TCP 业务控制器（Controller 模式）：
@@ -66,6 +80,25 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
         }
     }
 
+    /// <summary>
+    /// 示例鉴权实现：admin 拥有 calc.add 权限，其它用户没有。
+    /// 生产环境替换成数据库/LDAP/第三方鉴权即可，控制器不需要改动。
+    /// </summary>
+    public sealed class DemoAuthenticator : ISessionAuthenticator
+    {
+        public Task<SessionAuthResult> AuthenticateAsync(string userId, string token, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(token))
+                return Task.FromResult(SessionAuthResult.Fail("UNAUTHENTICATED", "缺少 token。"));
+
+            return Task.FromResult(userId == "admin"
+                ? SessionAuthResult.Ok("calc.add")
+                : SessionAuthResult.Ok());
+        }
+    }
+
+    // ===== 示例编排（客户端）=====
+
     /// <summary>TCP 示例：双端口 + 会话握手 + 断线重连（禁止顶号）+ 权限调用。</summary>
     public static class TcpDemoSample
     {
@@ -74,6 +107,8 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
 
         /// <summary>端口 B。</summary>
         public const int PortB = 17861;
+
+        // ===== 数据结构 =====
 
         /// <summary>一条连接（一个会话）。</summary>
         public sealed class Connection
@@ -97,13 +132,24 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             public TcpRpcServerTransport ServerB;
             public TcpSessionRegistry Registry;
             public readonly List<Connection> Connections = new List<Connection>();
+
+            /// <summary>连接编号（Interlocked 递增，避免并发点击时读到旧 Count）。</summary>
+            private int _nextIndex;
+
+            /// <summary>取下一个连接编号。</summary>
+            public int NextIndex()
+            {
+                return System.Threading.Interlocked.Increment(ref _nextIndex);
+            }
         }
+
+        // ===== 服务端装配 =====
 
         /// <summary>创建执行器：会话服务 + 业务服务 + 生成器分发。</summary>
         public static RpcExecutor CreateExecutor(TcpSessionRegistry registry)
         {
             ServiceRegistry services = new ServiceRegistry();
-            services.Register<SessionController>(new SessionController(registry), "session");
+            services.Register<SessionController>(new SessionController(registry, new DemoAuthenticator()), "session");
             services.Register<TcpCalculatorController>(new TcpCalculatorController(), "tcp.calc");
 
             IGeneratedRpcDispatcher dispatcher = new RpcGeneratedDispatcher();
@@ -133,11 +179,15 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             return server;
         }
 
+        // ===== 连接生命周期 =====
+
         /// <summary>创建一条新连接并完成首次握手；userId 决定权限（admin/guest）。</summary>
         public static async Task<Connection> CreateConnectionAsync(
             DemoSession session, string userId, CancellationToken ct)
         {
-            int port = session.Connections.Count % 2 == 0 ? PortA : PortB;
+            int index = session.NextIndex();
+            int port = index % 2 == 1 ? PortA : PortB;
+            string userIdForIndex = index % 2 == 1 ? "admin" : "guest";
             TcpRpcClientTransport client = new TcpRpcClientTransport("127.0.0.1", port, new NewtonsoftRpcSerializer());
             RpcSession rpcSession = new RpcSession(client);
             await rpcSession.ConnectAsync(userId, "demo-token", ct);
@@ -174,6 +224,21 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             connection.Session = rpcSession;
             connection.Disconnected = false;
             return "重连成功：" + connection.Name + " SessionId=" + rpcSession.SessionId;
+        }
+
+        // ===== 调用示例 =====
+
+        /// <summary>查询服务端记录的 SessionId。sessionId 是“会话归属”，与连接本身无直接关系。</summary>
+        public static async Task<string> GetServerSessionIds(DemoSession session, Connection connection)
+        {
+            RpcResponse<string> response = await connection.Session.CallAsync<string>(new RpcRequest
+            {
+                ServiceName = "session",
+                MethodName = "GetSessionIds"
+            }, default);
+
+            return response.Success ? "服务端记录：" + response.Data
+                : "查询失败：[" + response.Error?.Code + "] " + response.Error?.Message;
         }
 
         /// <summary>调用公开函数 Add(a,b)。</summary>

@@ -17,6 +17,7 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
         private ScrollView _list;
         private Label _status;
         private string _statusText = "未启动";
+        private bool _creating;
 
         private async void Start()
         {
@@ -78,11 +79,20 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
 
         private async Task CreateConnectionAsync()
         {
-            // 交替 admin / guest，便于演示有权与无权调用。
-            string userId = _session.Connections.Count % 2 == 0 ? "admin" : "guest";
-            TcpDemoSample.Connection connection = await TcpDemoSample.CreateConnectionAsync(_session, userId, _cts.Token);
-            AddItem(connection);
-            SetStatus("已创建：" + connection.Name + " SessionId=" + connection.Session.SessionId);
+            if (_creating) return;
+            _creating = true;
+            try
+            {
+                // 交替 admin / guest，便于演示有权与无权调用。
+                string userId = _session.Connections.Count % 2 == 0 ? "admin" : "guest";
+                TcpDemoSample.Connection connection = await TcpDemoSample.CreateConnectionAsync(_session, userId, _cts.Token);
+                AddItem(connection);
+                SetStatus("已创建：" + connection.Name + " SessionId=" + connection.Session.SessionId);
+            }
+            finally
+            {
+                _creating = false;
+            }
         }
 
         private void AddItem(TcpDemoSample.Connection connection)
@@ -98,24 +108,47 @@ namespace VoyageForge.Rpc.Transport.Samples.Tcp
             state.AddToClassList("connection-state");
             item.Add(state);
 
-            // 右击菜单：函数 + 断开/重连
-            item.AddManipulator(new ContextualMenuManipulator(evt =>
+            // 右击菜单：GenericDropdownMenu 在运行时手动弹出（ScrollView 内 ContextualMenuManipulator 会被吞）。
+            item.RegisterCallback<MouseDownEvent>(evt =>
             {
-                evt.menu.AppendAction("函数/Add(3,4)", _ => Run(() => CallAddAsync(connection, 3, 4)));
-                evt.menu.AppendAction("函数/有权 Add(1,2)", _ => Run(() => CallAuthorizedAsync(connection, 1, 2)));
-                evt.menu.AppendSeparator();
-                evt.menu.AppendAction("连接/断开", _ =>
+                if (evt.button != 1)
+                {
+                    return;
+                }
+
+                GenericDropdownMenu menu = new GenericDropdownMenu();
+                menu.AddItem("函数/Add(3,4)", false, () => Run(() => CallAddAsync(connection, 3, 4)));
+                menu.AddItem("函数/有权 Add(1,2)", false, () => Run(() => CallAuthorizedAsync(connection, 1, 2)));
+                menu.AddSeparator("");
+                menu.AddItem("连接/断开", false, () =>
                 {
                     TcpDemoSample.Disconnect(_session, connection);
                     state.text = "已断开";
                     SetStatus("已断开：" + connection.Name);
                 });
-                evt.menu.AppendAction("连接/重连", _ => Run(async () =>
+                menu.AddItem("连接/重连", false, () => Run(async () =>
                 {
                     SetStatus(await TcpDemoSample.ReconnectAsync(_session, connection, _cts.Token));
                     state.text = "在线";
                 }));
-            }));
+
+                // 弹层出现在鼠标位置；深色底 + 白字（默认主题的深色文字在深色场景看不清）。
+                menu.DropDown(new Rect(evt.mousePosition, Vector2.zero), item);
+                menu.contentContainer.style.backgroundColor = new Color(0.13f, 0.17f, 0.24f, 1f);
+                menu.contentContainer.style.minWidth = 220f;
+                menu.contentContainer.style.paddingTop = 4f;
+                menu.contentContainer.style.paddingBottom = 4f;
+                menu.contentContainer.Query<TextElement>().ForEach(label =>
+                {
+                    label.style.color = new Color(0.93f, 0.95f, 1f, 1f);
+                    label.style.fontSize = 18f;
+                    label.style.paddingTop = 4f;
+                    label.style.paddingBottom = 4f;
+                    label.style.paddingLeft = 8f;
+                    label.style.paddingRight = 8f;
+                });
+                evt.StopPropagation();
+            });
 
             _list?.Add(item);
         }

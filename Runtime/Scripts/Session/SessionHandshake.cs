@@ -11,6 +11,6 @@ namespace VoyageForge.Rpc.Transport.Session
         public string SessionId { get; set; }
 
         /// <summary>握手时下发的权限。</summary>
-        public IReadOnlyList<string> Permissions { get; set; } = new List<string>();
+        public string[] Permissions { get; set; } = System.Array.Empty<string>();
     }
 }

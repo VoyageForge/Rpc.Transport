@@ -18,7 +18,7 @@ namespace VoyageForge.Rpc.Transport.Session
         public string SessionId { get; private set; }
 
         /// <summary>握手时下发的权限集合。</summary>
-        public IReadOnlyList<string> Permissions { get; private set; } = Array.Empty<string>();
+        public string[] Permissions { get; private set; } = Array.Empty<string>();
 
         /// <summary>当前用户 ID。</summary>
         public string UserId { get; private set; }
@@ -33,7 +33,7 @@ namespace VoyageForge.Rpc.Transport.Session
         public async Task ConnectAsync(string userId, string token, CancellationToken ct)
         {
             // 握手返回元组 (sessionId, permissions)：MemoryPack 原生支持，无需额外 formatter。
-            RpcResponse<SessionHandshake> response = await SendTypedAsync<SessionHandshake>(
+            RpcResponse<(string SessionId, string Permissions)> response = await SendTypedAsync<(string SessionId, string Permissions)>(
                 new RpcRequest
                 {
                     ServiceName = "session",
@@ -45,28 +45,32 @@ namespace VoyageForge.Rpc.Transport.Session
                 throw new InvalidOperationException("会话握手失败 [" + response.Error?.Code + "]：" + response.Error?.Message);
 
             UserId = userId;
-            SessionId = response.Data?.SessionId;
-            Permissions = response.Data?.Permissions ?? Array.Empty<string>();
+            SessionId = response.Data.SessionId;
         }
 
         /// <summary>断线重连：带裸 SessionId；服务端已有活跃连接时会拒绝（禁止顶号）。</summary>
-        public async Task ReconnectAsync(CancellationToken ct)
+        public Task ReconnectAsync(CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(SessionId))
-                throw new InvalidOperationException("尚未握手，没有 SessionId 可重连。");
+            return ReconnectAsync(SessionId, ct);
+        }
 
-            RpcResponse<SessionHandshake> response = await SendTypedAsync<SessionHandshake>(
+        /// <summary>断线重连（显式传入旧 SessionId）：重建 RpcSession 时不必先握手。</summary>
+        public async Task ReconnectAsync(string sessionId, CancellationToken ct)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+                throw new InvalidOperationException("没有 SessionId 可重连。");
+
+            RpcResponse<string> response = await SendTypedAsync<string>(
                 new RpcRequest
                 {
                     ServiceName = "session",
                     MethodName = "Resume",
-                    Payload = RpcPayload.Pack(SessionId)
+                    Payload = RpcPayload.Pack((sessionId, string.Empty))
                 }, ct);
 
             if (!response.Success)
                 throw new InvalidOperationException("会话重连失败 [" + response.Error?.Code + "]：" + response.Error?.Message);
 
-            Permissions = response.Data?.Permissions ?? Array.Empty<string>();
         }
 
         /// <summary>会话级调用：自动把 user-id / permissions 写进请求头（执行器层 RpcContext 使用）。</summary>
@@ -85,7 +89,7 @@ namespace VoyageForge.Rpc.Transport.Session
         }
 
         /// <summary>权限字符串（逗号分隔）转集合。</summary>
-        private static IReadOnlyList<string> ParsePermissions(string permissions)
+        private static string[] ParsePermissions(string permissions)
         {
             if (string.IsNullOrEmpty(permissions)) return Array.Empty<string>();
             return permissions.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
