@@ -30,9 +30,16 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
                 server.Error += Debug.LogException;
                 var address = server.Listen(new IPEndPoint(IPAddress.Loopback, 0));
                 client.Connect(address, session => client.OnResult(SampleClient.RunAsync(session, timeout.Token),
-                    results => { foreach (var result in results) Debug.Log("[BidirectionalSessionSample] " + result); }));
+                    results =>
+                    {
+                        foreach (var result in results) Debug.Log("[BidirectionalSessionSample] " + result);
+                    }));
             }
-            catch (Exception error) { OnDisable(); Debug.LogException(error); }
+            catch (Exception error)
+            {
+                OnDisable();
+                Debug.LogException(error);
+            }
         }
 
         /// <summary>移除网络端点及回调，释放本轮示例的超时资源。</summary>

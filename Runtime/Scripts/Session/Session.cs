@@ -38,6 +38,7 @@ namespace VoyageForge.Rpc.Transport
         private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
         private readonly CancellationToken _connectionToken;
         private volatile bool _disposed;
+
         private readonly TaskCompletionSource<string> _closed =
             new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -105,7 +106,7 @@ namespace VoyageForge.Rpc.Transport
                 _stream = stream;
                 MarkFrameReceived();
                 _ = MonitorHeartbeatAsync(idle, timeout, _connectionToken);
-                _ = Task.Run(() => ReadLoopAsync(stream, _connectionToken));
+                _ = Task.Run(() => ReadLoopAsync(stream, _connectionToken), _connectionToken);
             }
         }
 
@@ -136,7 +137,8 @@ namespace VoyageForge.Rpc.Transport
                 await _writeLock.WaitAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    await _frame.WriteFrameAsync(stream, CmdOp.RpcRequest, body, _connectionToken, RpcWire.RequestPrefix(methodId, callId))
+                    await _frame.WriteFrameAsync(stream, CmdOp.RpcRequest, body, _connectionToken,
+                            RpcWire.RequestPrefix(methodId, callId))
                         .ConfigureAwait(false);
                 }
                 finally
@@ -241,8 +243,14 @@ namespace VoyageForge.Rpc.Transport
                     success = true;
                 }
             }
-            catch (OperationCanceledException) { body = RpcWire.Encode("CANCELLED"); }
-            catch (Exception error) { body = RpcWire.Encode("RPC_EXECUTION_FAILED: " + error.Message); }
+            catch (OperationCanceledException)
+            {
+                body = RpcWire.Encode("CANCELLED");
+            }
+            catch (Exception error)
+            {
+                body = RpcWire.Encode("RPC_EXECUTION_FAILED: " + error.Message);
+            }
             finally
             {
                 if (requestLifetime != null)
@@ -386,7 +394,15 @@ namespace VoyageForge.Rpc.Transport
                 _client = null;
                 _stream = null;
             }
-            try { _lifetime.Cancel(); } catch (AggregateException) { }
+
+            try
+            {
+                _lifetime.Cancel();
+            }
+            catch (AggregateException)
+            {
+            }
+
             FailAllPending(reason);
             _lifetime.Dispose();
             _closed.TrySetResult(reason);

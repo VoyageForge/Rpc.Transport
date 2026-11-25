@@ -7,6 +7,7 @@ namespace VoyageForge.Rpc.Transport
 {
     public abstract partial class Session
     {
+        /// <summary>连接建立或最近一次收到完整帧时的单调时钟时间戳，供心跳监视器计算空闲时长。</summary>
         private long _lastReceiveTimestamp;
 
         /// <summary>连续多久没有收到完整帧时发出 Ping。默认 15 秒，派生会话可在 Attach 前覆写。</summary>
@@ -15,7 +16,7 @@ namespace VoyageForge.Rpc.Transport
         /// <summary>从开始发送 Ping 起，最多等待对端活动的时间。默认 10 秒，包含等待写锁的时间。</summary>
         protected virtual int HeartbeatTimeoutMilliseconds => 10000;
 
-        // 用单调时钟跨线程记录收包时间，避免系统校时、暂停播放或 timeScale 改变计时结果。
+        /// <summary>用当前单调时钟值原子更新收包时间，供心跳监视器跨线程读取。</summary>
         private void MarkFrameReceived() =>
             Interlocked.Exchange(ref _lastReceiveTimestamp, Stopwatch.GetTimestamp());
 
@@ -49,10 +50,20 @@ namespace VoyageForge.Rpc.Transport
                     }
                 }
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-            catch (ObjectDisposedException) when (ct.IsCancellationRequested) { }
-            catch (System.IO.IOException) { Close("CONNECTION_LOST"); }
-            catch (System.Net.Sockets.SocketException) { Close("CONNECTION_LOST"); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+            }
+            catch (ObjectDisposedException) when (ct.IsCancellationRequested)
+            {
+            }
+            catch (System.IO.IOException)
+            {
+                Close("CONNECTION_LOST");
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                Close("CONNECTION_LOST");
+            }
         }
     }
 }

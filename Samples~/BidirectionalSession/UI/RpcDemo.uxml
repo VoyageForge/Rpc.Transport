@@ -10,8 +10,8 @@
             <ui:VisualElement class="columns">
                 <ui:VisualElement class="card">
                     <ui:Label text="客户端" class="section" />
-                    <ui:TextField name="user" label="账号" value="demo" />
-                    <ui:TextField name="password" label="密码" value="sample" is-password-field="true" />
+                    <ui:TextField name="user" label="账号" value="demo" style="color:black;" />
+                    <ui:TextField name="password" label="密码" value="sample" is-password-field="true" style="color:black;" />
                     <ui:VisualElement class="actions">
                         <ui:Button name="connect" text="连接" class="primary" />
                         <ui:Button name="login" text="登录" />
