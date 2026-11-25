@@ -1,0 +1,4 @@
+{
+  "name": "VoyageForge.Rpc.Transport.Unity",
+  "references": ["VoyageForge.Rpc.Transport"]
+}

@@ -1,0 +1,18 @@
+.page { flex-grow: 1; background-color: #101b27; color: #e4edf4; }
+.shell { width: 100%; max-width: 980px; align-self: center; padding: 24px; }
+.heading, .actions, .columns { flex-direction: row; align-items: center; flex-wrap: wrap; }
+.heading { justify-content: space-between; }
+.title { font-size: 32px; -unity-font-style: bold; }
+.status { background-color: #25394b; color: #93e2ce; padding: 5px 12px; border-radius: 8px; }
+.address, .caption { color: #abc4d5; font-size: 14px; }
+.address { margin-bottom: 16px; }
+.columns { align-items: stretch; }
+.card { flex-grow: 1; flex-basis: 310px; background-color: #1c2d3d; margin: 0 8px 14px 0; padding: 16px; border-radius: 8px; }
+.section { font-size: 21px; -unity-font-style: bold; margin-bottom: 8px; }
+.caption { margin-top: 12px; }
+.value { font-size: 17px; white-space: normal; }
+.actions { margin-top: 10px; }
+Button { padding: 5px 10px; margin: 2px; }
+.primary { background-color: #64cdb1; color: #102f30; }
+.history { white-space: normal; background-color: #162534; padding: 12px; font-size: 15px; }
+.unity-base-field__label { min-width: 40px; color: #d3e2eb; }

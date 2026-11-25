@@ -1,25 +1,23 @@
 # Changelog
 
-## 0.3.0
+## 0.4.2
 
-- 重构双向 Session：网络请求只传 RequestId、MethodId 和 Payload，不再发送 ControllerName / MethodName。
-- 新增应用级 RpcControllerRegistry；每条 Session 不再创建独立方法注册表。
-- ControllerMap 改为生成式代理初始化，不再通过反射查找 InitializeControllers。
-- Session 控制消息和业务 Payload 固定使用 MemoryPack；移除 Session 对 Newtonsoft IRpcSerializer 的依赖。
-- 删除可替换的 IRpcPayloadSerializer、JSON/Mirror Payload 实现和运行时类型反射序列化路径；RpcPayload 固定调用 MemoryPack。
-- MethodId 升级为 v2：ControllerName + MethodName + 按顺序排列的参数类型规范名。
-- 注册冲突改为显式异常，Registry Seal 后只读。
-- Controller Dispatcher 每次调用通过 Catalog factory 创建 Controller 实例，避免跨请求共享实例状态。
+- 将 Session、RpcControllerRegistry、RpcMethodDescriptor、RpcContractAttribute、RpcSessionAttribute、RpcApiAttribute、SessionRequest、SessionResponse、SessionCancelRequest、RpcSessionException、MethodIdHasher 等公开类型统一移动到 `VoyageForge.Rpc.Transport` 根命名空间。
+- 补回并重写双向 Session Sample，移除旧 ControllerMap / TcpRpcTransport / 内置鉴权示例。
+- 在 UPM Samples 列表中注册 `BidirectionalSession` 示例；该示例使用 Rpc.Executor 生成 Session 工厂和代理。
 
-## 0.2.0
+## 0.4.1
 
-- 版本统一为 0.2.0。
-- 帧协议：固定 10 字节头（SOF + Version + MessageId + Length），`Protocol<T>` 信封。
-- 长连接 TCP：心跳、鉴权、RequestId、固定间隔重连、断开 `CONNECTION_LOST`。
-- 内置 `NewtonsoftRpcSerializer`。
-- 新增 `TcpSession<TControllerMap>` 会话（`Rpc.Transport/Session`）：请求/响应、双向分发、`ControllerMap`、`RpcMethodRegistry`。
-- 命名空间/程序集：`VoyageForge.Rpc.Transport`。
+- 将传输关联字段 `RequestId` 更名为 `CallId`，明确它只用于请求/响应关联与取消。
+- 移除接收端对重复 CallId 的拒绝逻辑；运行时不缓存调用结果，也不执行请求去重。
+- 修正 MemoryPackSerializer 全限定名，并修正 asmdef 对 MemoryPack.Core.dll 的引用配置。
 
-## 0.0.12
+## 0.4.0
 
-- 帧协议改为固定 10 字节头，长连接 TCP + 心跳/鉴权/RequestId/重连。
+- 移除旧通用 TCP Client/Server Transport 与 Serializer 通道。
+- 帧协议版本提升到 2，拒绝与旧版握手/传输协议混用。
+- 统一双端 Session，支持双向 RPC。
+- 移除握手鉴权、权限下发及 SessionId 管理实现。
+- Session 增加实例级 Blackboard。
+- 新增 RpcCancel 帧，将调用方 CancellationToken 取消通知传递到远端请求处理器。
+- 移除 ControllerMap 和 TcpSession<TControllerMap>。

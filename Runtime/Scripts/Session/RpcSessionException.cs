@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 
-namespace VoyageForge.Rpc.Transport.Session
+namespace VoyageForge.Rpc.Transport
 {
     /// <summary>会话 RPC 失败（错误码来自远端响应）。</summary>
     public sealed class RpcSessionException : Exception

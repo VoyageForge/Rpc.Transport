@@ -1,56 +1,49 @@
 # VoyageForge RPC Transport
 
-独立 Unity UPM Package：`com.voyageforge.rpc-transport`，目标 Unity 2022.3。
+Unity 2022.3 的双向 TCP RPC 包。每条连接在两端各有一个 Session，两端都能发起请求。
 
-## 职责
+## 从示例开始
 
-- TCP 固定头分帧、长连接、心跳、鉴权、重连；
-- 双向 `TcpSession<TControllerMap>`；
-- 应用级 `RpcControllerRegistry` 与程序集生成的 `GeneratedRpcControllerCatalog`；
-- Session 业务 Payload 统一使用 MemoryPack；
-- 传输层通用 `IRpcSerializer` 仍用于独立的 `TcpRpcClientTransport` / `TcpRpcServerTransport` 消息适配，不参与新的 Controller Session 协议。
+通过 Package Manager 导入「双向 Session 基础示例」，打开 `Scenes/BidirectionalRpcDemo.unity`。依次连接、登录、查询用户、断开连接，可以看到服务端黑板和客户端收到的欢迎回调。[示例代码和场景说明](Samples~/BidirectionalSession/README.md)
 
-## Controller Session
+## Session 与 Controller
 
-调用方声明 `partial ControllerMap` 并通过 `[ControllerMap(typeof(IUserController))]` 选择共享契约。Source Generator 生成属性与强类型代理。被调用方通过 `[RpcController(typeof(IUserController))]` 标记 `partial class XxxController : RpcControllerBase, IUserController`，生成 Dispatcher。
+| 调用 | 执行位置 |
+|---|---|
+| `session.Local<UserController>()` | 本端。用注册工厂取得 Controller 并绑定当前连接。 |
+| `session.Remote<IAccountApi>()` | 对端。调用代理的方法时发送请求。 |
 
-每个服务程序集生成一个静态 `GeneratedRpcControllerCatalog`。应用启动时先创建 `RpcControllerRegistry`，依次注册各程序集 Catalog，然后把同一个 Registry 传给每条 `TcpSession<TControllerMap>`。Session 创建时会 Seal Registry，因此必须先完成注册。Catalog 的 factory 每次调用都应返回新实例或请求作用域实例。
+Session 用 `[RpcApi]` 声明出站契约，用 `[RpcControllerBinding]` 选择入站 Controller。业务代码通过生成的 `ClientSession.Create(socket)` 创建会话。两端按协议名、方法名、业务参数类型及顺序匹配，返回类型也须一致。每次调用的取消令牌可通过取消帧通知对端。
+
+登录状态由业务代码写入当前 Session 的 `Blackboard`，后续 Controller 从同一连接读取。字典支持并发访问，字典中对象的线程安全由业务代码负责。
+
+## MemoryPack 依赖
+
+通过 NuGetForUnity 安装 MemoryPack 1.21.4，项目中应有 `MemoryPack.Core.dll`。开启 `overrideReferences` 的 asmdef 需要在 `precompiledReferences` 中列出该 DLL，Transport 的 EditMode 测试程序集使用这种配置。使用默认预编译引用的程序集可直接访问它。
+
+## Unity 场景中的 TCP 生命周期
+
+在 GameObject 上添加 `RpcTcpLifetime`，业务程序集引用 `VoyageForge.Rpc.Transport.Unity`。通过组件创建端点，在主线程调用其 API。监听端可同时接受多个连接，每条连接使用独立的 Session。
 
 ```csharp
-var registry = new RpcControllerRegistry();
-ServerAccount.GeneratedRpcControllerCatalog.Register(registry, type => new UserController());
-var session = new TcpSession<GameControllerMap>(tcpClient, registry);
-var user = await session.Ability.User.GetUser(request, ct);
+var server = lifetime.Open(socket => ServerSession.Create(socket));
+server.Connected += session => Debug.Log("收到客户端连接");
+var address = server.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+
+var client = lifetime.Open(socket => ClientSession.Create(socket));
+client.Error += error => Debug.LogException(error);
+client.Disconnected += (session, reason) => Debug.Log(reason);
+client.Connect(address, session =>
+    client.OnResult(session.Remote<IAccountApi>().GetProfileAsync(ct),
+        profile => Debug.Log(profile), error => Debug.LogException(error)));
 ```
 
-### MethodId
+`RpcTcpLifetime.Update` 派发连接事件和完成回调。每次操作可以提供失败回调，省略时走端点的 `Error` 事件。Session 的入站 Controller 使用原有的异步分发。要在业务 UI 提前断开，调用 `lifetime.Release(endpoint)`。组件禁用、销毁、退出播放、退出应用或编辑器脚本重载时，组件同步停止监听，关闭连接中和已连接的 socket，丢弃尚未派发的回调。再次启用后可创建新端点。独立 .NET 调用端可自行驱动 `Poll()` 并负责 `Dispose()`。
 
-MethodId 是 FNV-1a 64，输入包括 `ControllerName`、`MethodName` 和按声明顺序排列的所有业务参数类型规范名。`CancellationToken` 不参与签名。类型规范名由 Source Generator 的 Roslyn `FullyQualifiedFormat` 产生，协议 Key 版本为 `v2`。
+## Session 心跳
 
-网络请求只包含 `RequestId`、`MethodId`、`Payload`；Controller/Method 名称仅存在于本地生成 Catalog 和 Descriptor 中。重复 MethodId 注册会直接抛出异常，不再回退到字符串查找。
+每个已连接的 Session 单独记录上一次收到完整帧的单调时钟时间。默认连续 15 秒未收包时主动发送一个空正文 Ping；对端收到后回复空正文 Pong。探测期间收到任何完整的合法帧均视为连接活跃。两端可同时发起探测。
 
-### Payload
+探测窗口默认为 10 秒，从 Ping 开始排队写入时计时。窗口结束时仍未收到帧，或写 Ping 超时，Session 会关闭套接字，并通过 `Closed` 和端点的 `Disconnected` 报告 `HEARTBEAT_TIMEOUT`。业务会话可覆写 `HeartbeatIdleMilliseconds` 和 `HeartbeatTimeoutMilliseconds`，在 Attach 时读取配置。计时独立于 Unity 的 Update 和 timeScale；事件仍在端点下一次 Poll 时派发。释放 Session 会同时取消心跳等待。
 
-- 0 个业务参数：空 Payload；
-- 1 个业务参数：直接序列化该参数的静态类型；
-- 2–7 个业务参数：序列化对应的 `ValueTuple`；
-- 返回值 `Task<T>`：MemoryPack 序列化 `T`；
-- 返回值 `Task`：空响应 Payload。
-
-DTO 必须由用户源码声明为 `[MemoryPackable] partial`。RPC Generator 不会向 MemoryPack Generator 注入 DTO 源码。单个 `null` 参数仍会按其静态类型序列化，不与无参数调用混淆。
-
-## TCP 帧协议
-
-```text
-[SOF: 2B = 0xAA 0x55][Version: 2B BE][TypeId: 2B BE][Length: 4B BE][Payload]
-```
-
-Session 控制包使用轻量二进制编码；业务 Payload 使用 MemoryPack。帧版本目前为 `1`。
-
-## 通用 TCP Transport
-
-`TcpRpcClientTransport` / `TcpRpcServerTransport` 保留独立的 `IRpcSerializer` 适配层，当前仍提供 Newtonsoft 实现。这条通用消息通道与新的 Controller Session 是两种不同 API，不要把它的 Serializer 参数传给 `TcpSession`。
-
-## 安装与依赖
-
-通过 Package Manager 的 Add package from disk 选择本包 `package.json`。使用 MemoryPack 的业务 asmdef 需要引用 `MemoryPack.Core`，并安装 MemoryPack Source Generator Analyzer。
+有关固定帧头、操作码和待实现的 Channel、广播模式，见 [TCP 帧协议 v3](Documentation/README.md)。

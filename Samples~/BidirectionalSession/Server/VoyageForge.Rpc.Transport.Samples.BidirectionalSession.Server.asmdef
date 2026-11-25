@@ -1,0 +1,18 @@
+{
+  "name": "VoyageForge.Rpc.Transport.Samples.BidirectionalSession.Server",
+  "rootNamespace": "VoyageForge.Rpc.Transport.Samples.BidirectionalSession.Server",
+  "references": [
+    "VoyageForge.Rpc.Transport",
+    "VoyageForge.Rpc.Executor",
+    "VoyageForge.Rpc.Transport.Samples.BidirectionalSession.Shared"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

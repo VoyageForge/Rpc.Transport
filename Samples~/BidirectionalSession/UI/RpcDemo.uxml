@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="RpcDemo.uss" />
+    <ui:ScrollView class="page">
+        <ui:VisualElement class="shell">
+            <ui:VisualElement class="heading">
+                <ui:Label text="双向 RPC" class="title" />
+                <ui:Label name="status" text="未连接" class="status" />
+            </ui:VisualElement>
+            <ui:Label name="endpoint" text="本机 TCP · 等待连接" class="address" />
+            <ui:VisualElement class="columns">
+                <ui:VisualElement class="card">
+                    <ui:Label text="客户端" class="section" />
+                    <ui:TextField name="user" label="账号" value="demo" />
+                    <ui:TextField name="password" label="密码" value="sample" is-password-field="true" />
+                    <ui:VisualElement class="actions">
+                        <ui:Button name="connect" text="连接" class="primary" />
+                        <ui:Button name="login" text="登录" />
+                        <ui:Button name="profile" text="查询用户" />
+                        <ui:Button name="disconnect" text="断开" />
+                    </ui:VisualElement>
+                    <ui:Label text="服务端回调" class="caption" />
+                    <ui:Label name="notice" text="尚未收到欢迎消息" class="value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="card">
+                    <ui:Label text="服务端" class="section" />
+                    <ui:Label text="当前连接的 Blackboard · User" class="caption" />
+                    <ui:Label name="identity" text="—" class="value" />
+                    <ui:Label text="GetProfileAsync 返回值" class="caption" />
+                    <ui:Label name="result" text="—" class="value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label text="调用记录" class="section" />
+            <ui:Label name="log" text="点击「连接」建立本机双向会话。" class="history" />
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

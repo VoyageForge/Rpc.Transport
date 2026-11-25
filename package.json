@@ -1,26 +1,21 @@
 {
   "name": "com.voyageforge.rpc-transport",
-  "version": "0.3.0",
+  "version": "0.4.2",
   "displayName": "VoyageForge RPC Transport",
-  "description": "双向 TCP RPC Session、MethodId 路由、MemoryPack 负载与通用 TCP 传输。",
+  "description": "统一双向 TCP Session、MethodId 路由、MemoryPack 负载与每连接 Blackboard。",
   "unity": "2022.3",
   "author": {
     "name": "VoyageForge"
   },
   "samples": [
     {
-      "displayName": "TcpSession 双向 RPC",
-      "description": "演示 TcpSession<TControllerMap>、[Controller] 契约、生成器代理与本地 Dispatcher。",
-      "path": "Samples~/Session"
-    },
-    {
-      "displayName": "TCP Echo",
-      "description": "长连接 TCP 示例：握手鉴权、心跳、RequestId、断线重连与端口释放。",
-      "path": "Samples~/Tcp"
+      "displayName": "双向 Session 基础示例",
+      "description": "演示根命名空间 Session、生成的 Create/API Proxy，以及同一 TCP 连接上的双向 RPC。需要 Rpc.Executor。",
+      "path": "Samples~/BidirectionalSession"
     }
   ],
   "dependencies": {
     "com.unity.test-framework": "1.1.33",
-    "com.unity.nuget.newtonsoft-json": "3.2.1"
+    "com.voyageforge.rpc-executor": "0.4.2"
   }
 }
