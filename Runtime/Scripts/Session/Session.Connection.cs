@@ -195,8 +195,14 @@ namespace VoyageForge.Rpc.Transport
 
                 try
                 {
-                    await _transport.SendAsync(CmdOp.RpcResponse, body, sessionToken,
-                        RpcWire.CallPrefix(request.CallId, success)).ConfigureAwait(false);
+                    await _transport.SendAsync
+                        (
+                        CmdOp.RpcResponse, 
+                        body, 
+                        sessionToken,
+                        RpcWire.CallPrefix(request.CallId, success)
+                        )
+                        .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {

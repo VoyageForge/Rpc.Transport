@@ -65,8 +65,13 @@ namespace VoyageForge.Rpc.Transport
         internal static Request<ReadOnlyMemory<byte>> ReadRequest(ReadOnlyMemory<byte> frame)
         {
             if (frame.Length < 16) throw new InvalidDataException("Incomplete request prefix.");
-            return new Request<ReadOnlyMemory<byte>>(BinaryPrimitives.ReadUInt64BigEndian(frame.Span),
-                BinaryPrimitives.ReadInt64BigEndian(frame.Span.Slice(8)), frame.Slice(16));
+            
+            return new Request<ReadOnlyMemory<byte>>
+            (
+                BinaryPrimitives.ReadUInt64BigEndian(frame.Span),
+                BinaryPrimitives.ReadInt64BigEndian(frame.Span.Slice(8)), 
+                frame.Slice(16)
+                );
         }
 
         internal static byte[] CallPrefix(long id, bool? success = null)

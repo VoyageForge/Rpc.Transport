@@ -47,6 +47,20 @@ registry.Register(route); // route.MethodId 是编译期计算的登录方法编
 
 这里有两次不同的查找。注册表的 `Controllers` 属性在构造时就创建了一个 `LocalExecutor`，它按 **Controller 类型**保存工厂。`registry.Register(route)` 则按 **MethodId** 保存方法描述和强类型委托。生成的 `Create()` 把配置好的注册表传给 Session 构造函数，基类调用 `Seal()` 封存方法路由。`[RpcApi]` 声明的出站接口由生成的构造函数调用 `RegisterRemote` 登记，供本端主动调用对方。[Session 装配声明](../Samples~/BidirectionalSession/Server/ServerSession.cs) · [注册表](../Runtime/Scripts/Session/RpcControllerRegistry.cs) · [Session.Local](../Runtime/Scripts/Session/Session.cs)
 
+### RpcControllerRegistry 和 LocalExecutor 的实例范围
+
+**每个注册表持有一个固定的 LocalExecutor，同一进程可以有多个执行器。** 生成的 `ServerSession.Create()` 每调用一次，就创建一个注册表并交给新 Session。因此，两个客户端分别建立新会话时，服务端通常持有两套注册表和执行器。一个客户端先登录、再查询资料，这两次请求使用同一个执行器。恢复原会话也沿用这个执行器。[注册表中的 Controllers 属性](../Runtime/Scripts/Session/RpcControllerRegistry.cs) · [Session 构造与本地调用](../Runtime/Scripts/Session/Session.cs)
+
+| 对象或成员 | 登录示例中的内容 | 何时创建或使用 |
+|---|---|---|
+| `RpcControllerRegistry._methods` | 登录和查询资料各有一个 MethodId，对应各自的分发委托 | 建立新 Session 时登记，每个入站请求按 MethodId 查询。`Count` 统计方法数。 |
+| `RpcControllerRegistry.Controllers` | 一个 LocalExecutor，其中登记了一份 AccountController 工厂 | 注册表构造时创建执行器。两个方法共用这个执行器和工厂。 |
+| `AccountController` 实例 | 处理当前请求，并通过 Session 访问黑板 | 每次 `Local<AccountController>()` 都调用工厂。默认工厂创建新实例，自定义工厂可以在同一 Session 内复用实例。 |
+
+手写 Session 构造函数时，可以显式传入同一个注册表，让多个 Session 共享方法路由和执行器。工厂返回的 RPC Controller 会在首次使用时绑定当前 Session；若同一个 Controller 实例随后被另一个 Session 取得，`SetSession` 会抛出异常。共享注册表时，应为不同 Session 提供独立的 Controller 实例。[Controller 的会话绑定](../Runtime/Scripts/Session/RpcControllerBase.cs)
+
+`Seal()` 的作用范围是方法路由：调用后再用 `registry.Register(descriptor)` 新增方法会抛出异常，重复的 MethodId 也会在注册阶段被拒绝。执行器有自己的注册规则，同一执行器内每种 Controller 类型只允许登记一次工厂。`Seal()` 不会冻结这张工厂表。[注册与封存实现](../Runtime/Scripts/Session/RpcControllerRegistry.cs)
+
 ### 每次请求如何执行
 
 1. **收齐一包。** `TcpConnection` 按帧头长度收齐数据，交付 `CmdOp | Payload`。握手完成后，这条物理连接的接收处理器已绑定到一个 `SessionBinding`，它的 `_owner` 就是本次调用的 Session。[TCP 接收循环](../Runtime/Scripts/Tcp/TcpConnection.cs)
