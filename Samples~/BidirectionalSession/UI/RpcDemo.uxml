@@ -16,6 +16,7 @@
                         <ui:Button name="connect" text="连接" class="primary" />
                         <ui:Button name="login" text="登录" />
                         <ui:Button name="profile" text="查询用户" />
+                        <ui:Button name="interrupt" text="模拟断线" />
                         <ui:Button name="disconnect" text="断开" />
                     </ui:VisualElement>
                     <ui:Label text="服务端回调" class="caption" />

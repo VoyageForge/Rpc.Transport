@@ -3,7 +3,8 @@
   "rootNamespace": "VoyageForge.Rpc.Transport.Tests",
   "references": [
     "VoyageForge.Rpc.Transport",
-    "VoyageForge.Rpc.Transport.Unity"
+    "VoyageForge.Rpc.Transport.Unity",
+    "VoyageForge.Rpc.Transport.TestComponents"
   ],
   "includePlatforms": [
     "Editor"

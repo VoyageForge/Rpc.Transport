@@ -23,7 +23,7 @@ namespace VoyageForge.Rpc.Transport
 
     internal interface IPendingCall
     {
-        void Complete(byte[] frame);
+        void Complete(ReadOnlyMemory<byte> frame);
         void Fail(string reason);
     }
 
@@ -36,18 +36,18 @@ namespace VoyageForge.Rpc.Transport
 
         internal PendingCall(ulong method, long id) { _method = method; _id = id; }
         public void Fail(string reason) => Source.TrySetException(new RpcSessionException(reason));
-        public void Complete(byte[] frame)
+        public void Complete(ReadOnlyMemory<byte> frame)
         {
             try
             {
-                if (frame[8] == 0)
+                if (frame.Span[8] == 0)
                 {
-                    string error = MemoryPackSerializer.Deserialize<string>(frame.AsSpan(9));
+                    string error = MemoryPackSerializer.Deserialize<string>(frame.Span.Slice(9));
                     Source.TrySetResult(new Response<T>(_method, _id, default, error ?? "RPC_FAILED"));
                     return;
                 }
-                if (frame[8] != 1) throw new InvalidDataException("Unknown response status.");
-                T value = typeof(T) == typeof(RpcUnit) ? default : MemoryPackSerializer.Deserialize<T>(frame.AsSpan(9));
+                if (frame.Span[8] != 1) throw new InvalidDataException("Unknown response status.");
+                T value = typeof(T) == typeof(RpcUnit) ? default : MemoryPackSerializer.Deserialize<T>(frame.Span.Slice(9));
                 Source.TrySetResult(new Response<T>(_method, _id, value, null));
             }
             catch (Exception error) { Source.TrySetException(error); }

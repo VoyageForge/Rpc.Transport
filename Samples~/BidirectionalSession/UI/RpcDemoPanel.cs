@@ -17,10 +17,9 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
     {
         private VisualElement root;
         private ClientSession client;
-        private ServerSession server;
-        private RpcTcpLifetime lifetime;
-        private RpcTcpEndpoint<ClientSession> outgoing;
-        private RpcTcpEndpoint<ServerSession> incoming;
+        private Session server;
+        private RpcClient<ClientSession> outgoing;
+        private TcpServer incoming;
         private CancellationTokenSource request;
         private readonly Queue<string> entries = new Queue<string>();
         private bool busy;
@@ -29,10 +28,10 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
         private void OnEnable()
         {
             root = GetComponent<UIDocument>().rootVisualElement;
-            lifetime = GetComponent<RpcTcpLifetime>() ?? gameObject.AddComponent<RpcTcpLifetime>();
             entries.Clear();
             root.Q<Button>("connect").clicked += Connect;
             root.Q<Button>("disconnect").clicked += Disconnect;
+            root.Q<Button>("interrupt").clicked += Interrupt;
             root.Q<Button>("login").clicked += Login;
             root.Q<Button>("profile").clicked += Profile;
             RefreshControls();
@@ -43,6 +42,7 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
         {
             root.Q<Button>("connect").clicked -= Connect;
             root.Q<Button>("disconnect").clicked -= Disconnect;
+            root.Q<Button>("interrupt").clicked -= Interrupt;
             root.Q<Button>("login").clicked -= Login;
             root.Q<Button>("profile").clicked -= Profile;
             ReleaseSessions();
@@ -56,23 +56,34 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
             busy = true;
             try
             {
-                incoming = lifetime.Open(socket => ServerSession.Create(socket));
-                outgoing = lifetime.Open(socket => ClientSession.Create(socket));
+                incoming = RpcNetworkManager.Instance.CreateServer();
+
+                outgoing = RpcNetworkManager.Instance.CreateClient("game", () => ClientSession.Create());
                 incoming.Connected += session =>
                 {
                     server = session;
                     Ready();
+                };
+                outgoing.Suspended += _ =>
+                {
+                    Log("连接中断，正在恢复原会话");
+                    RefreshControls();
+                };
+                outgoing.Resumed += _ =>
+                {
+                    Log("已恢复原会话");
+                    RefreshControls();
                 };
                 outgoing.Disconnected += (_, reason) =>
                 {
                     Disconnect();
                     Log(reason);
                 };
-                incoming.Error += ConnectionFailed;
+                incoming.Error += error => Log(error.Message);
                 outgoing.Error += ConnectionFailed;
-                var address = incoming.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+                var address = incoming.Start(new IPEndPoint(IPAddress.Loopback, 0));
                 Set("endpoint", address + " · TCP");
-                outgoing.Connect(address, session =>
+                outgoing.Start(address.Address.ToString(), address.Port, completed: session =>
                 {
                     client = session;
                     Ready();
@@ -85,6 +96,9 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
 
             RefreshControls();
         }
+
+        /// <summary>关闭当前 TCP 套接字，验证重新接入后仍可查询原黑板中的用户。</summary>
+        private void Interrupt() => client?.Suspend();
 
         /// <summary>两端均完成绑定后才允许登录和查询。</summary>
         private void Ready()
@@ -184,8 +198,8 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
         /// <summary>释放两端及其待派发回调，清理当前请求资源。</summary>
         private void ReleaseSessions()
         {
-            lifetime.Release(outgoing);
-            lifetime.Release(incoming);
+            outgoing?.Dispose();
+            incoming?.Dispose();
             outgoing = null;
             incoming = null;
             request?.Dispose();
@@ -198,11 +212,11 @@ namespace VoyageForge.Rpc.Transport.Samples.BidirectionalSession
         /// <summary>按连接状态和请求状态设置按钮可用性。</summary>
         private void RefreshControls()
         {
-            bool connected = client != null;
-            Set("status", busy ? "处理中" : connected ? "已连接" : "未连接");
-            root.Q<Button>("connect").SetEnabled(!busy && !connected);
+            bool connected = client?.IsConnected == true;
+            Set("status", client?.IsSuspended == true ? "重连中" : busy ? "处理中" : connected ? "已连接" : "未连接");
+            root.Q<Button>("connect").SetEnabled(outgoing == null && !busy);
             root.Q<Button>("disconnect").SetEnabled(outgoing != null);
-            foreach (var name in new[] { "login", "profile" })
+            foreach (var name in new[] { "login", "profile", "interrupt" })
                 root.Q<Button>(name).SetEnabled(!busy && connected);
         }
 

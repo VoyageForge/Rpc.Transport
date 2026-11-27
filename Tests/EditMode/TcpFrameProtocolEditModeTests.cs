@@ -39,4 +39,18 @@ namespace VoyageForge.Rpc.Transport.Tests
             }
         }
     }
+    /// <summary>供线协议测试读写指定操作码，生产分帧器只收发字节包。</summary>
+    internal static class TestWireExtensions
+    {
+        internal static System.Threading.Tasks.Task WriteFrameAsync(this TcpFrameProtocol protocol, Stream stream,
+            CmdOp op, byte[] payload, CancellationToken ct) => protocol.WritePacketAsync(stream, RpcWire.Packet(op, payload), ct);
+
+        internal static async System.Threading.Tasks.Task<RpcWire.Frame?> ReadFrameAsync(this TcpFrameProtocol protocol,
+            Stream stream, CancellationToken ct)
+        {
+            var packet = await protocol.ReadPacketAsync(stream, ct).ConfigureAwait(false);
+            if (packet == null) return null;
+            return new RpcWire.Frame((CmdOp)packet[0], packet.AsSpan(1).ToArray());
+        }
+    }
 }

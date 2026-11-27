@@ -18,7 +18,7 @@ namespace VoyageForge.Rpc.Transport.Tcp
         public const int HeaderLength = 9;
 
         /// <summary>当前协议版本（写入帧头，接收端不匹配直接拒绝）。</summary>
-        public const ushort CurrentVersion = 3;
+        public const ushort CurrentVersion = 4;
 
         /// <summary>帧起始魔数 0xAA55。</summary>
         public const ushort Magic = 0xAA55;
@@ -39,7 +39,7 @@ namespace VoyageForge.Rpc.Transport.Tcp
         }
 
         /// <summary>读取一帧；返回 null 表示对端在帧开始前正常关闭。</summary>
-        public async Task<Frame?> ReadFrameAsync(Stream stream, CancellationToken ct)
+        public async Task<byte[]> ReadPacketAsync(Stream stream, CancellationToken ct)
         {
             byte[] header = new byte[HeaderLength];
             int headerBytes = await ReadExactlyAsync(stream, header, 0, HeaderLength, true, ct).ConfigureAwait(false);
@@ -53,52 +53,52 @@ namespace VoyageForge.Rpc.Transport.Tcp
             if (version != CurrentVersion)
                 throw new InvalidDataException("不支持的协议版本：" + version);
 
-            CmdOp op = (CmdOp)header[4];
             int length = (header[5] << 24) | (header[6] << 16) | (header[7] << 8) | header[8];
             if (length < 0 || length > _maxFrameBytes)
                 throw new InvalidDataException("TCP 帧长度非法：" + length + "，允许范围为 0 到 " + _maxFrameBytes + " 字节。");
 
-            byte[] payload = new byte[length];
+            byte[] payload = new byte[checked(length + 1)];
+            payload[0] = header[4];
             if (length > 0)
-                await ReadExactlyAsync(stream, payload, 0, length, false, ct).ConfigureAwait(false);
-            return new Frame(op, payload);
+                await ReadExactlyAsync(stream, payload, 1, length, false, ct).ConfigureAwait(false);
+            return payload;
         }
 
         /// <summary>写入一帧（固定头 + payload）。</summary>
-        public async Task WriteFrameAsync(Stream stream, CmdOp op, byte[] payload, CancellationToken ct, byte[] prefix = null)
+        public async Task WritePacketAsync(Stream stream, ReadOnlyMemory<byte> packet, CancellationToken ct)
         {
-            if (payload == null) payload = Array.Empty<byte>();
-            int prefixLength = prefix?.Length ?? 0;
-            if (payload.Length > _maxFrameBytes - prefixLength)
-                throw new InvalidDataException("TCP 帧超过最大长度：" + payload.Length);
-
-            byte[] header = new byte[HeaderLength + prefixLength];
-            if (prefixLength > 0) Buffer.BlockCopy(prefix, 0, header, HeaderLength, prefixLength);
+            if (packet.IsEmpty) throw new ArgumentException("不能发送空包。", nameof(packet));
+            int length = packet.Length - 1;
+            if (length > _maxFrameBytes) throw new InvalidDataException("TCP 帧超过最大长度：" + length);
+            byte[] header = new byte[HeaderLength];
             WriteUInt16(header, 0, Magic);
             WriteUInt16(header, 2, CurrentVersion);
-            header[4] = (byte)op;
-            int length = payload.Length + prefixLength;
+            header[4] = packet.Span[0];
             header[5] = (byte)(length >> 24);
             header[6] = (byte)(length >> 16);
             header[7] = (byte)(length >> 8);
             header[8] = (byte)length;
 
             await stream.WriteAsync(header, 0, header.Length, ct).ConfigureAwait(false);
-            await stream.WriteAsync(payload, 0, payload.Length, ct).ConfigureAwait(false);
+            await stream.WriteAsync(packet.Slice(1), ct).ConfigureAwait(false);
             await stream.FlushAsync(ct).ConfigureAwait(false);
         }
 
+        /// <summary>按网络字节序读取帧头中的双字节字段。</summary>
         private static ushort ReadUInt16(byte[] buffer, int offset)
         {
             return (ushort)((buffer[offset] << 8) | buffer[offset + 1]);
         }
 
+        /// <summary>按网络字节序写入帧头中的双字节字段。</summary>
         private static void WriteUInt16(byte[] buffer, int offset, ushort value)
         {
             buffer[offset] = (byte)(value >> 8);
             buffer[offset + 1] = (byte)value;
         }
 
+        /// <summary>循环读取直到凑齐指定字节数，处理一次 TCP 读取只返回部分帧头或正文的情况。</summary>
+        /// <remarks>allowCleanEof 用于新帧头：首字节前遇到 EOF 可以返回 0；半帧断开会抛出异常。</remarks>
         private static async Task<int> ReadExactlyAsync(Stream stream, byte[] buffer, int offset, int count,
             bool allowCleanEof, CancellationToken ct)
         {
@@ -117,22 +117,6 @@ namespace VoyageForge.Rpc.Transport.Tcp
             }
 
             return totalRead;
-        }
-
-        /// <summary>读到的帧：类型编号 + payload。</summary>
-        public readonly struct Frame
-        {
-            public Frame(CmdOp op, byte[] payload)
-            {
-                Op = op;
-                Payload = payload;
-            }
-
-            /// <summary>v3 单字节操作码。</summary>
-            public CmdOp Op { get; }
-
-            /// <summary>消息体字节。</summary>
-            public byte[] Payload { get; }
         }
     }
 }

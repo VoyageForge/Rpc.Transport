@@ -1,0 +1,11 @@
+{
+  "name": "VoyageForge.Rpc.Transport.TestComponents",
+  "references": [
+    "VoyageForge.Rpc.Transport",
+    "VoyageForge.Rpc.Transport.Unity"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- TCP 监听和拨号分别使用 TcpServer 和 RpcClient<TSession>，生命周期入口为 Start、Stop 和 Dispose。
+- Unity 场景通过 RpcNetworkManager.CreateSession 按类型创建会话。托管端点随管理器退出，独立端点由调用者释放。
+- TCP 帧协议为 v4，SessionOpen 使用 MemoryPack 正文携带会话类型和恢复凭据。升级时请同步更新通信两端。
+
 ## 0.4.2
 
 - 将 Session、RpcControllerRegistry、RpcMethodDescriptor、RpcContractAttribute、RpcSessionAttribute、RpcApiAttribute、SessionRequest、SessionResponse、SessionCancelRequest、RpcSessionException、MethodIdHasher 等公开类型统一移动到 `VoyageForge.Rpc.Transport` 根命名空间。
